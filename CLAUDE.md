@@ -18,13 +18,13 @@ dotnet test tests/AgentRegistry.Api.Tests/
 dotnet test --filter "FullyQualifiedName~RegistrationTests.Register_WithValidRequest"
 
 # Run the API (requires Postgres + Redis via user secrets)
-dotnet run --project src/AgentRegistry.Api
+dotnet run --project src/MarimerLLC.AgentRegistry.Api
 
 # Add a migration after domain/EF model changes
-dotnet ef migrations add <Name> -p src/AgentRegistry.Infrastructure -s src/AgentRegistry.Api
+dotnet ef migrations add <Name> -p src/MarimerLLC.AgentRegistry.Infrastructure -s src/MarimerLLC.AgentRegistry.Api
 
 # Apply migrations
-dotnet ef database update -p src/AgentRegistry.Infrastructure -s src/AgentRegistry.Api
+dotnet ef database update -p src/MarimerLLC.AgentRegistry.Infrastructure -s src/MarimerLLC.AgentRegistry.Api
 ```
 
 ## Architecture
@@ -66,7 +66,7 @@ Application-layer tests use `Rocks` (source-generator mocks) to mock `IAgentRepo
 
 ## Adding a new protocol adapter
 
-1. Add a `Protocols/<Name>/` folder under `AgentRegistry.Api` with:
+1. Add a `Protocols/<Name>/` folder under `MarimerLLC.AgentRegistry.Api` with:
    - `Models/` — request/response records matching the protocol's wire format
    - `<Name>AgentManifestMapper.cs` (or equivalent) — bidirectional mapping to/from domain types using `Endpoint.ProtocolMetadata` for protocol-specific fields
    - `<Name>Endpoints.cs` — minimal API route registrations with `.WithTags()`, `.WithSummary()`, `.WithDescription()`, `.Produces<T>()`, and `.ProducesProblem()` on every route

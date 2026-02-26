@@ -5,8 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AgentRegistry.Domain\AgentRegistry.Domain.csproj" />
-    <ProjectReference Include="..\AgentRegistry.Application\AgentRegistry.Application.csproj" />
+    <ProjectReference Include="..\MarimerLLC.AgentRegistry.Domain\MarimerLLC.AgentRegistry.Domain.csproj" />
+    <ProjectReference Include="..\MarimerLLC.AgentRegistry.Application\MarimerLLC.AgentRegistry.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,9 +1,9 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/AgentRegistry.Api/AgentRegistry.Api.csproj" />
-    <Project Path="src/AgentRegistry.Application/AgentRegistry.Application.csproj" />
-    <Project Path="src/AgentRegistry.Domain/AgentRegistry.Domain.csproj" />
-    <Project Path="src/AgentRegistry.Infrastructure/AgentRegistry.Infrastructure.csproj" />
+    <Project Path="src/MarimerLLC.AgentRegistry.Api/MarimerLLC.AgentRegistry.Api.csproj" />
+    <Project Path="src/MarimerLLC.AgentRegistry.Application/MarimerLLC.AgentRegistry.Application.csproj" />
+    <Project Path="src/MarimerLLC.AgentRegistry.Domain/MarimerLLC.AgentRegistry.Domain.csproj" />
+    <Project Path="src/MarimerLLC.AgentRegistry.Infrastructure/MarimerLLC.AgentRegistry.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/AgentRegistry.Api.Tests/AgentRegistry.Api.Tests.csproj" />
