@@ -13,18 +13,31 @@ public static class A2AEndpoints
         // The registry's own agent card — describes the registry as an A2A agent.
         app.MapGet("/.well-known/agent.json", GetRegistryCard)
             .WithName("A2ARegistryCard")
-            .WithTags("A2A");
+            .WithTags("A2A")
+            .WithSummary("Registry's own A2A agent card")
+            .WithDescription("Returns the A2A agent card that describes the registry itself as an A2A-capable agent, following the A2A v1.0 RC well-known URL convention.")
+            .Produces<object>(StatusCodes.Status200OK);
 
         var group = app.MapGroup("/a2a").WithTags("A2A");
 
         // Per-agent card — public, no auth required.
         group.MapGet("/agents/{id}", GetAgentCard)
-            .WithName("A2AGetAgentCard");
+            .WithName("A2AGetAgentCard")
+            .WithSummary("Get an A2A agent card")
+            .WithDescription("Returns the A2A-spec agent card for a registered agent. Skills are mapped from the agent's capabilities. Returns 404 if the agent does not exist or has no A2A endpoints.")
+            .Produces<object>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         // A2A-native registration — submit an agent card to register.
         group.MapPost("/agents", RegisterViaCard)
             .RequireAuthorization(RegistryPolicies.AgentOrAdmin)
-            .WithName("A2ARegisterAgent");
+            .WithName("A2ARegisterAgent")
+            .WithSummary("Register an agent via A2A agent card")
+            .WithDescription("Registers an agent by submitting a native A2A agent card. Capabilities are mapped from the card's skills and endpoints from the card's service endpoints. Returns the stored card.")
+            .Produces<object>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         return app;
     }
