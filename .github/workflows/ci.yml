@@ -27,4 +27,4 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Test
-        run: dotnet test --no-build --configuration Release --logger "github;summary.includePassedTests=true;summary.includeSkippedTests=true"
+        run: dotnet test --no-build --configuration Release
