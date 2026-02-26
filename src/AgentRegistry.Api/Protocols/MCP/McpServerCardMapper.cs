@@ -1,10 +1,10 @@
 using System.Text.Json;
-using AgentRegistry.Api.Protocols.MCP.Models;
-using AgentRegistry.Application.Agents;
-using AgentRegistry.Domain.Agents;
-using DomainEndpoint = AgentRegistry.Domain.Agents.Endpoint;
+using MarimerLLC.AgentRegistry.Api.Protocols.MCP.Models;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using MarimerLLC.AgentRegistry.Domain.Agents;
+using DomainEndpoint = MarimerLLC.AgentRegistry.Domain.Agents.Endpoint;
 
-namespace AgentRegistry.Api.Protocols.MCP;
+namespace MarimerLLC.AgentRegistry.Api.Protocols.MCP;
 
 public static class McpServerCardMapper
 {

@@ -1,8 +1,8 @@
-using AgentRegistry.Application.Agents;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 using Microsoft.EntityFrameworkCore;
 
-namespace AgentRegistry.Infrastructure.Persistence;
+namespace MarimerLLC.AgentRegistry.Infrastructure.Persistence;
 
 public class SqlAgentRepository(AgentRegistryDbContext db) : IAgentRepository
 {

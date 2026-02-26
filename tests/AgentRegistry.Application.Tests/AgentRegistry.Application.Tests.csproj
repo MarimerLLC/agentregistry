@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <RootNamespace>MarimerLLC.AgentRegistry.Application.Tests</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

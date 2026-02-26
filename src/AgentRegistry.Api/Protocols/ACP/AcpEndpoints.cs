@@ -1,10 +1,10 @@
 using System.Security.Claims;
-using AgentRegistry.Api.Auth;
-using AgentRegistry.Api.Protocols.ACP.Models;
-using AgentRegistry.Application.Agents;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Api.Auth;
+using MarimerLLC.AgentRegistry.Api.Protocols.ACP.Models;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 
-namespace AgentRegistry.Api.Protocols.ACP;
+namespace MarimerLLC.AgentRegistry.Api.Protocols.ACP;
 
 public static class AcpEndpoints
 {

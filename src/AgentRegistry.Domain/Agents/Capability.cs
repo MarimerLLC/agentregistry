@@ -1,4 +1,4 @@
-namespace AgentRegistry.Domain.Agents;
+namespace MarimerLLC.AgentRegistry.Domain.Agents;
 
 /// <summary>
 /// A protocol-agnostic description of something an agent can do.

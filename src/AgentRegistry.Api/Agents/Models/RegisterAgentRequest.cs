@@ -1,6 +1,6 @@
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 
-namespace AgentRegistry.Api.Agents.Models;
+namespace MarimerLLC.AgentRegistry.Api.Agents.Models;
 
 public record RegisterAgentRequest(
     string Name,

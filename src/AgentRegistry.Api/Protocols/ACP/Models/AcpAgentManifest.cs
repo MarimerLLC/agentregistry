@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
-namespace AgentRegistry.Api.Protocols.ACP.Models;
+namespace MarimerLLC.AgentRegistry.Api.Protocols.ACP.Models;
 
 /// <summary>
 /// ACP Agent Manifest — spec 0.2.0 (i-am-bee/acp).

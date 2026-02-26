@@ -1,4 +1,4 @@
-namespace AgentRegistry.Application.Agents;
+namespace MarimerLLC.AgentRegistry.Application.Agents;
 
 public record PagedResult<T>(IReadOnlyList<T> Items, int TotalCount, int Page, int PageSize)
 {

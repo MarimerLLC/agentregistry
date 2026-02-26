@@ -1,4 +1,4 @@
-namespace AgentRegistry.Domain.Agents;
+namespace MarimerLLC.AgentRegistry.Domain.Agents;
 
 /// <summary>
 /// A reachable address where an agent accepts work.

@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace AgentRegistry.Domain.ApiKeys;
+namespace MarimerLLC.AgentRegistry.Domain.ApiKeys;
 
 public class ApiKey
 {

@@ -1,9 +1,9 @@
-using AgentRegistry.Domain.ApiKeys;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Domain.ApiKeys;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
-namespace AgentRegistry.Infrastructure.Persistence;
+namespace MarimerLLC.AgentRegistry.Infrastructure.Persistence;
 
 public class AgentRegistryDbContext(DbContextOptions<AgentRegistryDbContext> options) : DbContext(options)
 {

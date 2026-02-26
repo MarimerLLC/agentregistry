@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
-namespace AgentRegistry.Api.Protocols.MCP.Models;
+namespace MarimerLLC.AgentRegistry.Api.Protocols.MCP.Models;
 
 /// <summary>
 /// Registry representation of a registered MCP server.

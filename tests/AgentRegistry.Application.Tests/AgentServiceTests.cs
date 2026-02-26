@@ -1,12 +1,12 @@
-using AgentRegistry.Application;
-using AgentRegistry.Application.Agents;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Application;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 using Rocks;
 
 [assembly: Rock(typeof(IAgentRepository), BuildType.Create)]
 [assembly: Rock(typeof(ILivenessStore), BuildType.Create)]
 
-namespace AgentRegistry.Application.Tests;
+namespace MarimerLLC.AgentRegistry.Application.Tests;
 
 public class AgentServiceTests
 {

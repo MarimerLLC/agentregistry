@@ -1,12 +1,12 @@
-using AgentRegistry.Application.Agents;
-using AgentRegistry.Application.Auth;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using MarimerLLC.AgentRegistry.Application.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using StackExchange.Redis;
 
-namespace AgentRegistry.Api.Tests.Infrastructure;
+namespace MarimerLLC.AgentRegistry.Api.Tests.Infrastructure;
 
 public class AgentRegistryFactory : WebApplicationFactory<Program>
 {

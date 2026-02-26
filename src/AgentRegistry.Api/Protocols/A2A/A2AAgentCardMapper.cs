@@ -1,11 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using AgentRegistry.Api.Protocols.A2A.Models;
-using AgentRegistry.Application.Agents;
-using AgentRegistry.Domain.Agents;
-using DomainEndpoint = AgentRegistry.Domain.Agents.Endpoint;
+using MarimerLLC.AgentRegistry.Api.Protocols.A2A.Models;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using MarimerLLC.AgentRegistry.Domain.Agents;
+using DomainEndpoint = MarimerLLC.AgentRegistry.Domain.Agents.Endpoint;
 
-namespace AgentRegistry.Api.Protocols.A2A;
+namespace MarimerLLC.AgentRegistry.Api.Protocols.A2A;
 
 public static class A2AAgentCardMapper
 {

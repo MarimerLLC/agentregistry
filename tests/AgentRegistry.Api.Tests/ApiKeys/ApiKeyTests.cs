@@ -1,10 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
-using AgentRegistry.Api.ApiKeys.Models;
-using AgentRegistry.Api.Tests.Infrastructure;
-using AgentRegistry.Domain.ApiKeys;
+using MarimerLLC.AgentRegistry.Api.ApiKeys.Models;
+using MarimerLLC.AgentRegistry.Api.Tests.Infrastructure;
+using MarimerLLC.AgentRegistry.Domain.ApiKeys;
 
-namespace AgentRegistry.Api.Tests.ApiKeys;
+namespace MarimerLLC.AgentRegistry.Api.Tests.ApiKeys;
 
 public class ApiKeyTests(AgentRegistryFactory factory) : IClassFixture<AgentRegistryFactory>, IDisposable
 {

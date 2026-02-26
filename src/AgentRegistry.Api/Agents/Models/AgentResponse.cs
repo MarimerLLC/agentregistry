@@ -1,8 +1,8 @@
-using AgentRegistry.Application.Agents;
-using DomainEndpoint = AgentRegistry.Domain.Agents.Endpoint;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using DomainEndpoint = MarimerLLC.AgentRegistry.Domain.Agents.Endpoint;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 
-namespace AgentRegistry.Api.Agents.Models;
+namespace MarimerLLC.AgentRegistry.Api.Agents.Models;
 
 public record AgentResponse(
     string Id,

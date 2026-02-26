@@ -1,7 +1,7 @@
-using AgentRegistry.Application.Auth;
-using AgentRegistry.Domain.ApiKeys;
+using MarimerLLC.AgentRegistry.Application.Auth;
+using MarimerLLC.AgentRegistry.Domain.ApiKeys;
 
-namespace AgentRegistry.Api.ApiKeys.Models;
+namespace MarimerLLC.AgentRegistry.Api.ApiKeys.Models;
 
 public record IssueApiKeyRequest(string? Description, ApiKeyScope Scope = ApiKeyScope.Agent);
 

@@ -1,4 +1,4 @@
-namespace AgentRegistry.Domain.Agents;
+namespace MarimerLLC.AgentRegistry.Domain.Agents;
 
 public enum ProtocolType
 {

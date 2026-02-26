@@ -1,6 +1,6 @@
-using AgentRegistry.Domain.ApiKeys;
+using MarimerLLC.AgentRegistry.Domain.ApiKeys;
 
-namespace AgentRegistry.Api.Auth;
+namespace MarimerLLC.AgentRegistry.Api.Auth;
 
 /// <summary>Claim type and value constants used across the registry's authorization policies.</summary>
 public static class RegistryClaims

@@ -1,4 +1,4 @@
-namespace AgentRegistry.Domain.Agents;
+namespace MarimerLLC.AgentRegistry.Domain.Agents;
 
 /// <summary>
 /// How an endpoint signals that it is available.

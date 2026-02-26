@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
 
-namespace AgentRegistry.Infrastructure.Liveness;
+namespace MarimerLLC.AgentRegistry.Infrastructure.Liveness;
 
 public class PostgresHealthCheck(string connectionString) : IHealthCheck
 {

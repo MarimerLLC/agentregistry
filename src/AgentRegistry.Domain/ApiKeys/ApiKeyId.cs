@@ -1,4 +1,4 @@
-namespace AgentRegistry.Domain.ApiKeys;
+namespace MarimerLLC.AgentRegistry.Domain.ApiKeys;
 
 public readonly record struct ApiKeyId(Guid Value)
 {

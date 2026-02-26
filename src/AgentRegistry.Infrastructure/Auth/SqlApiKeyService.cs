@@ -1,10 +1,10 @@
-using AgentRegistry.Application;
-using AgentRegistry.Application.Auth;
-using AgentRegistry.Domain.ApiKeys;
-using AgentRegistry.Infrastructure.Persistence;
+using MarimerLLC.AgentRegistry.Application;
+using MarimerLLC.AgentRegistry.Application.Auth;
+using MarimerLLC.AgentRegistry.Domain.ApiKeys;
+using MarimerLLC.AgentRegistry.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace AgentRegistry.Infrastructure.Auth;
+namespace MarimerLLC.AgentRegistry.Infrastructure.Auth;
 
 public class SqlApiKeyService(AgentRegistryDbContext db) : IApiKeyService
 {

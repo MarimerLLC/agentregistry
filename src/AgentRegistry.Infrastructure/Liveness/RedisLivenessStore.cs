@@ -1,8 +1,8 @@
-using AgentRegistry.Application.Agents;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 using StackExchange.Redis;
 
-namespace AgentRegistry.Infrastructure.Liveness;
+namespace MarimerLLC.AgentRegistry.Infrastructure.Liveness;
 
 public class RedisLivenessStore(IConnectionMultiplexer redis) : ILivenessStore
 {

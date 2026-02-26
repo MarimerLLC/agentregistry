@@ -1,12 +1,12 @@
 using System.Security.Claims;
-using AgentRegistry.Api.ApiKeys.Models;
-using AgentRegistry.Api.Auth;
-using AgentRegistry.Application;
-using AgentRegistry.Application.Auth;
-using AgentRegistry.Domain.ApiKeys;
+using MarimerLLC.AgentRegistry.Api.ApiKeys.Models;
+using MarimerLLC.AgentRegistry.Api.Auth;
+using MarimerLLC.AgentRegistry.Application;
+using MarimerLLC.AgentRegistry.Application.Auth;
+using MarimerLLC.AgentRegistry.Domain.ApiKeys;
 using Microsoft.AspNetCore.Mvc;
 
-namespace AgentRegistry.Api.ApiKeys;
+namespace MarimerLLC.AgentRegistry.Api.ApiKeys;
 
 public static class ApiKeyEndpoints
 {

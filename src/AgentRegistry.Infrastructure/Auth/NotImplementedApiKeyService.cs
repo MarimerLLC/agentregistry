@@ -1,7 +1,7 @@
-using AgentRegistry.Application.Auth;
-using AgentRegistry.Domain.ApiKeys;
+using MarimerLLC.AgentRegistry.Application.Auth;
+using MarimerLLC.AgentRegistry.Domain.ApiKeys;
 
-namespace AgentRegistry.Infrastructure.Auth;
+namespace MarimerLLC.AgentRegistry.Infrastructure.Auth;
 
 /// <summary>
 /// Placeholder registered until the API key persistence layer is implemented.

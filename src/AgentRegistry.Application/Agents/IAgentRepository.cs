@@ -1,6 +1,6 @@
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 
-namespace AgentRegistry.Application.Agents;
+namespace MarimerLLC.AgentRegistry.Application.Agents;
 
 public interface IAgentRepository
 {

@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using StackExchange.Redis;
 
-namespace AgentRegistry.Infrastructure.Liveness;
+namespace MarimerLLC.AgentRegistry.Infrastructure.Liveness;
 
 public class RedisHealthCheck(IConnectionMultiplexer redis) : IHealthCheck
 {

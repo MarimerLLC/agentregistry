@@ -1,10 +1,10 @@
 using System.Text.Json;
-using AgentRegistry.Api.Protocols.ACP.Models;
-using AgentRegistry.Application.Agents;
-using AgentRegistry.Domain.Agents;
-using DomainEndpoint = AgentRegistry.Domain.Agents.Endpoint;
+using MarimerLLC.AgentRegistry.Api.Protocols.ACP.Models;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using MarimerLLC.AgentRegistry.Domain.Agents;
+using DomainEndpoint = MarimerLLC.AgentRegistry.Domain.Agents.Endpoint;
 
-namespace AgentRegistry.Api.Protocols.ACP;
+namespace MarimerLLC.AgentRegistry.Api.Protocols.ACP;
 
 public static class AcpAgentManifestMapper
 {

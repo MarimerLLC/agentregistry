@@ -1,10 +1,10 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
-using AgentRegistry.Application.Auth;
+using MarimerLLC.AgentRegistry.Application.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 
-namespace AgentRegistry.Api.Auth;
+namespace MarimerLLC.AgentRegistry.Api.Auth;
 
 public class ApiKeyAuthenticationOptions : AuthenticationSchemeOptions
 {

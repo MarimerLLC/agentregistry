@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 
-namespace AgentRegistry.Api.Auth;
+namespace MarimerLLC.AgentRegistry.Api.Auth;
 
 public static class RegistryPolicies
 {

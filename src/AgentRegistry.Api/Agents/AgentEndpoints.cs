@@ -1,11 +1,11 @@
 using System.Security.Claims;
-using AgentRegistry.Api.Agents.Models;
-using AgentRegistry.Api.Auth;
-using AgentRegistry.Application;
-using AgentRegistry.Application.Agents;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Api.Agents.Models;
+using MarimerLLC.AgentRegistry.Api.Auth;
+using MarimerLLC.AgentRegistry.Application;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 
-namespace AgentRegistry.Api.Agents;
+namespace MarimerLLC.AgentRegistry.Api.Agents;
 
 public static class AgentEndpoints
 {

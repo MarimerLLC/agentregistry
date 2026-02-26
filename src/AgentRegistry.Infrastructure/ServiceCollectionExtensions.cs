@@ -1,15 +1,15 @@
-using AgentRegistry.Application.Agents;
-using AgentRegistry.Application.Auth;
-using AgentRegistry.Infrastructure.Auth;
-using AgentRegistry.Infrastructure.Liveness;
-using AgentRegistry.Infrastructure.Persistence;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using MarimerLLC.AgentRegistry.Application.Auth;
+using MarimerLLC.AgentRegistry.Infrastructure.Auth;
+using MarimerLLC.AgentRegistry.Infrastructure.Liveness;
+using MarimerLLC.AgentRegistry.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
 using StackExchange.Redis;
 
-namespace AgentRegistry.Infrastructure;
+namespace MarimerLLC.AgentRegistry.Infrastructure;
 
 public static class ServiceCollectionExtensions
 {

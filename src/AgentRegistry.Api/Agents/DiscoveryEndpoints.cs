@@ -1,8 +1,8 @@
-using AgentRegistry.Api.Agents.Models;
-using AgentRegistry.Application.Agents;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Api.Agents.Models;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 
-namespace AgentRegistry.Api.Agents;
+namespace MarimerLLC.AgentRegistry.Api.Agents;
 
 public static class DiscoveryEndpoints
 {

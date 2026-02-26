@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace AgentRegistry.Infrastructure.Liveness;
+namespace MarimerLLC.AgentRegistry.Infrastructure.Liveness;
 
 internal sealed class StaticHealthCheck(HealthCheckResult result) : IHealthCheck
 {

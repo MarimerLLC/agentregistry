@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
-namespace AgentRegistry.Api.Protocols.A2A.Models;
+namespace MarimerLLC.AgentRegistry.Api.Protocols.A2A.Models;
 
 /// <summary>
 /// A2A Agent Card — v1.0 RC.

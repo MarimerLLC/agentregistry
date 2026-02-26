@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
-namespace AgentRegistry.Infrastructure.Persistence;
+namespace MarimerLLC.AgentRegistry.Infrastructure.Persistence;
 
 /// <summary>
 /// Used by EF Core tooling (dotnet ef migrations add/remove, database update ...) at design time.

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace AgentRegistry.Infrastructure.Migrations
+namespace MarimerLLC.AgentRegistry.Infrastructure.Migrations
 {
     /// <inheritdoc />
     public partial class AddApiKeys : Migration

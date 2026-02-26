@@ -1,12 +1,12 @@
 using System.ComponentModel;
 using System.Text.Json;
-using AgentRegistry.Api.Protocols.A2A;
-using AgentRegistry.Api.Protocols.ACP;
-using AgentRegistry.Application.Agents;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Api.Protocols.A2A;
+using MarimerLLC.AgentRegistry.Api.Protocols.ACP;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 using ModelContextProtocol.Server;
 
-namespace AgentRegistry.Api.Protocols.MCP;
+namespace MarimerLLC.AgentRegistry.Api.Protocols.MCP;
 
 /// <summary>
 /// MCP tools that expose the registry's discovery capabilities to MCP clients.

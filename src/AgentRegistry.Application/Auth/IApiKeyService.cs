@@ -1,6 +1,6 @@
-using AgentRegistry.Domain.ApiKeys;
+using MarimerLLC.AgentRegistry.Domain.ApiKeys;
 
-namespace AgentRegistry.Application.Auth;
+namespace MarimerLLC.AgentRegistry.Application.Auth;
 
 public record ApiKeyValidationResult(bool IsValid, string? OwnerId, string? KeyId, ApiKeyScope? Scope);
 

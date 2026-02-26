@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <RootNamespace>MarimerLLC.AgentRegistry.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\AgentRegistry.Domain\AgentRegistry.Domain.csproj" />
     <ProjectReference Include="..\AgentRegistry.Application\AgentRegistry.Application.csproj" />
