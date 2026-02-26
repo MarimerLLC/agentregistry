@@ -1,11 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
-using AgentRegistry.Api.Agents.Models;
-using AgentRegistry.Api.Protocols.A2A.Models;
-using AgentRegistry.Api.Tests.Infrastructure;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Api.Agents.Models;
+using MarimerLLC.AgentRegistry.Api.Protocols.A2A.Models;
+using MarimerLLC.AgentRegistry.Api.Tests.Infrastructure;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 
-namespace AgentRegistry.Api.Tests.Protocols.A2A;
+namespace MarimerLLC.AgentRegistry.Api.Tests.Protocols.A2A;
 
 public class A2AEndpointTests(AgentRegistryFactory factory) : IClassFixture<AgentRegistryFactory>, IDisposable
 {

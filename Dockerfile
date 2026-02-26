@@ -2,24 +2,24 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy solution and package management files first for layer caching.
-COPY AgentRegistry.slnx .
+COPY MarimerLLC.AgentRegistry.slnx .
 COPY Directory.Build.props .
 COPY Directory.Packages.props .
 
 # Copy project files for restore (src + test csproj stubs — no test source needed).
-COPY src/AgentRegistry.Domain/AgentRegistry.Domain.csproj                    src/AgentRegistry.Domain/
-COPY src/AgentRegistry.Application/AgentRegistry.Application.csproj          src/AgentRegistry.Application/
-COPY src/AgentRegistry.Infrastructure/AgentRegistry.Infrastructure.csproj     src/AgentRegistry.Infrastructure/
-COPY src/AgentRegistry.Api/AgentRegistry.Api.csproj                          src/AgentRegistry.Api/
+COPY src/MarimerLLC.AgentRegistry.Domain/MarimerLLC.AgentRegistry.Domain.csproj                    src/MarimerLLC.AgentRegistry.Domain/
+COPY src/MarimerLLC.AgentRegistry.Application/MarimerLLC.AgentRegistry.Application.csproj          src/MarimerLLC.AgentRegistry.Application/
+COPY src/MarimerLLC.AgentRegistry.Infrastructure/MarimerLLC.AgentRegistry.Infrastructure.csproj     src/MarimerLLC.AgentRegistry.Infrastructure/
+COPY src/MarimerLLC.AgentRegistry.Api/MarimerLLC.AgentRegistry.Api.csproj                          src/MarimerLLC.AgentRegistry.Api/
 COPY tests/AgentRegistry.Domain.Tests/AgentRegistry.Domain.Tests.csproj      tests/AgentRegistry.Domain.Tests/
 COPY tests/AgentRegistry.Application.Tests/AgentRegistry.Application.Tests.csproj tests/AgentRegistry.Application.Tests/
 COPY tests/AgentRegistry.Api.Tests/AgentRegistry.Api.Tests.csproj            tests/AgentRegistry.Api.Tests/
 
-RUN dotnet restore AgentRegistry.slnx
+RUN dotnet restore MarimerLLC.AgentRegistry.slnx
 
 # Copy source and publish.
 COPY src/ src/
-RUN dotnet publish src/AgentRegistry.Api/AgentRegistry.Api.csproj \
+RUN dotnet publish src/MarimerLLC.AgentRegistry.Api/MarimerLLC.AgentRegistry.Api.csproj \
     --configuration Release \
     --output /app/publish
 
@@ -40,4 +40,4 @@ EXPOSE 8080
 
 ENV ASPNETCORE_URLS=http://+:8080
 
-ENTRYPOINT ["dotnet", "AgentRegistry.Api.dll"]
+ENTRYPOINT ["dotnet", "MarimerLLC.AgentRegistry.Api.dll"]

@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
-using AgentRegistry.Application.Agents;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Application.Agents;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 
-namespace AgentRegistry.Api.Tests.Infrastructure;
+namespace MarimerLLC.AgentRegistry.Api.Tests.Infrastructure;
 
 public class InMemoryLivenessStore : ILivenessStore
 {

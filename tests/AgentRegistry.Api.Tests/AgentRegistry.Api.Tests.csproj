@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <RootNamespace>MarimerLLC.AgentRegistry.Api.Tests</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,9 +25,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\AgentRegistry.Api\AgentRegistry.Api.csproj" />
-    <ProjectReference Include="..\..\src\AgentRegistry.Application\AgentRegistry.Application.csproj" />
-    <ProjectReference Include="..\..\src\AgentRegistry.Domain\AgentRegistry.Domain.csproj" />
+    <ProjectReference Include="..\..\src\MarimerLLC.AgentRegistry.Api\MarimerLLC.AgentRegistry.Api.csproj" />
+    <ProjectReference Include="..\..\src\MarimerLLC.AgentRegistry.Application\MarimerLLC.AgentRegistry.Application.csproj" />
+    <ProjectReference Include="..\..\src\MarimerLLC.AgentRegistry.Domain\MarimerLLC.AgentRegistry.Domain.csproj" />
   </ItemGroup>
 
 </Project>

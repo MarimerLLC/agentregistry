@@ -1,12 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using AgentRegistry.Api.Agents.Models;
-using AgentRegistry.Api.Protocols.ACP.Models;
-using AgentRegistry.Api.Tests.Infrastructure;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Api.Agents.Models;
+using MarimerLLC.AgentRegistry.Api.Protocols.ACP.Models;
+using MarimerLLC.AgentRegistry.Api.Tests.Infrastructure;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 
-namespace AgentRegistry.Api.Tests.Protocols.ACP;
+namespace MarimerLLC.AgentRegistry.Api.Tests.Protocols.ACP;
 
 public class AcpEndpointTests(AgentRegistryFactory factory) : IClassFixture<AgentRegistryFactory>, IDisposable
 {

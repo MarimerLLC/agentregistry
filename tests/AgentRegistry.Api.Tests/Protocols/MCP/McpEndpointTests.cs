@@ -1,12 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using AgentRegistry.Api.Agents.Models;
-using AgentRegistry.Api.Protocols.MCP.Models;
-using AgentRegistry.Api.Tests.Infrastructure;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Api.Agents.Models;
+using MarimerLLC.AgentRegistry.Api.Protocols.MCP.Models;
+using MarimerLLC.AgentRegistry.Api.Tests.Infrastructure;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 
-namespace AgentRegistry.Api.Tests.Protocols.MCP;
+namespace MarimerLLC.AgentRegistry.Api.Tests.Protocols.MCP;
 
 public class McpEndpointTests(AgentRegistryFactory factory) : IClassFixture<AgentRegistryFactory>, IDisposable
 {

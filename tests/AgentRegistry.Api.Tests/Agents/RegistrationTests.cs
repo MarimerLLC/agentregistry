@@ -1,10 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
-using AgentRegistry.Api.Agents.Models;
-using AgentRegistry.Api.Tests.Infrastructure;
-using AgentRegistry.Domain.Agents;
+using MarimerLLC.AgentRegistry.Api.Agents.Models;
+using MarimerLLC.AgentRegistry.Api.Tests.Infrastructure;
+using MarimerLLC.AgentRegistry.Domain.Agents;
 
-namespace AgentRegistry.Api.Tests.Agents;
+namespace MarimerLLC.AgentRegistry.Api.Tests.Agents;
 
 public class RegistrationTests(AgentRegistryFactory factory) : IClassFixture<AgentRegistryFactory>, IDisposable
 {

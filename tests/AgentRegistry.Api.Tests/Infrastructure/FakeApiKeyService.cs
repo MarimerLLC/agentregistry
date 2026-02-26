@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
-using AgentRegistry.Application.Auth;
-using AgentRegistry.Domain.ApiKeys;
+using MarimerLLC.AgentRegistry.Application.Auth;
+using MarimerLLC.AgentRegistry.Domain.ApiKeys;
 
-namespace AgentRegistry.Api.Tests.Infrastructure;
+namespace MarimerLLC.AgentRegistry.Api.Tests.Infrastructure;
 
 public class FakeApiKeyService : IApiKeyService
 {
