@@ -59,6 +59,7 @@ Detailed design rationale for each adapter is in [`/docs`](docs/):
 
 - [A2A adapter design](docs/protocol-a2a.md)
 - [MCP adapter design](docs/protocol-mcp.md)
+- [ACP adapter design](docs/protocol-acp.md)
 
 ### A2A (Agent-to-Agent)
 
@@ -79,6 +80,16 @@ Targets the [MCP spec 2025-11-25](https://modelcontextprotocol.io/), **Streamabl
 - `POST /mcp/servers` — register by submitting an MCP server card directly (Agent or Admin)
 
 Tool, resource, and prompt descriptors (including JSON Schema) round-trip through `Endpoint.ProtocolMetadata`. The `isLive` field on returned cards reflects real-time Redis liveness.
+
+### ACP (Agent Communication Protocol)
+
+Targets [ACP spec 0.2.0](https://github.com/i-am-bee/acp) (IBM Research / BeeAI). ACP was absorbed into A2A under Linux Foundation governance in August 2025 but remains widely deployed. Both protocols are supported concurrently.
+
+- `GET /acp/agents/{id}` — ACP agent manifest for a registered agent (public)
+- `GET /acp/agents` — filtered list of ACP manifests, with optional `domain` filter (public)
+- `POST /acp/agents` — register by submitting an ACP manifest + endpoint URL (Agent or Admin)
+
+The manifest carries MIME-typed content types, JSON Schema for input/output/config/thread state, performance status metrics, and rich metadata (framework, natural languages, license, author). All fields round-trip through `Endpoint.ProtocolMetadata`. Agent names are normalised to RFC 1123 DNS-label format on manifest generation.
 
 ### Generic (protocol-agnostic)
 
@@ -248,6 +259,14 @@ Discovery and protocol card endpoints (`/discover/agents`, `/a2a/agents/*`, `/mc
 | `GET` | `/mcp/servers` | Public | Filtered list of MCP server cards |
 | `POST` | `/mcp/servers` | Agent or Admin | Register by submitting an MCP server card |
 
+### ACP protocol
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/acp/agents/{id}` | Public | ACP agent manifest for a registered agent |
+| `GET` | `/acp/agents` | Public | Filtered list of ACP agent manifests |
+| `POST` | `/acp/agents` | Agent or Admin | Register by submitting an ACP agent manifest |
+
 ### Key management and system
 
 | Method | Path | Auth | Description |
@@ -369,6 +388,7 @@ src/
     Protocols/
       A2A/                      A2A v1.0 RC agent card adapter
       MCP/                      MCP 2025-11-25 server card adapter (Streamable HTTP)
+      ACP/                      ACP 0.2.0 agent manifest adapter
 tests/
   AgentRegistry.Domain.Tests/       Domain unit tests
   AgentRegistry.Application.Tests/  Service tests using Rocks source-gen mocks
@@ -376,6 +396,7 @@ tests/
     Protocols/
       A2A/                          A2A endpoint tests
       MCP/                          MCP endpoint tests
+      ACP/                          ACP endpoint tests
 k8s/
   redis.yaml                    Redis StatefulSet + Service
   agentregistry/

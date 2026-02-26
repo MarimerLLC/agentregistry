@@ -2,6 +2,7 @@ using AgentRegistry.Api.ApiKeys;
 using AgentRegistry.Api.Agents;
 using AgentRegistry.Api.Auth;
 using AgentRegistry.Api.Protocols.A2A;
+using AgentRegistry.Api.Protocols.ACP;
 using AgentRegistry.Api.Protocols.MCP;
 using AgentRegistry.Application.Agents;
 using AgentRegistry.Infrastructure;
@@ -146,6 +147,7 @@ app.MapDiscoveryEndpoints();
 app.MapApiKeyEndpoints();
 app.MapA2AEndpoints();
 app.MapMcpEndpoints();
+app.MapAcpEndpoints();
 
 if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
     await app.Services.MigrateAsync();
