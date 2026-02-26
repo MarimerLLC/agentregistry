@@ -1,6 +1,7 @@
 using AgentRegistry.Api.ApiKeys;
 using AgentRegistry.Api.Agents;
 using AgentRegistry.Api.Auth;
+using AgentRegistry.Api.Protocols.A2A;
 using AgentRegistry.Application.Agents;
 using AgentRegistry.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -142,6 +143,7 @@ app.MapHealthChecks("/readyz", new HealthCheckOptions
 app.MapAgentEndpoints();
 app.MapDiscoveryEndpoints();
 app.MapApiKeyEndpoints();
+app.MapA2AEndpoints();
 
 if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
     await app.Services.MigrateAsync();
