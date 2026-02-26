@@ -73,8 +73,13 @@ Agent capabilities map to A2A skills. Protocol-specific fields (streaming capabi
 
 ### MCP (Model Context Protocol)
 
-Targets the [MCP spec 2025-11-25](https://modelcontextprotocol.io/), **Streamable HTTP transport only** — the deprecated HTTP+SSE transport (2024-11-05) and stdio are not supported. The registry is a discovery service for MCP servers; it does not implement the MCP JSON-RPC wire protocol itself.
+Targets the [MCP spec 2025-11-25](https://modelcontextprotocol.io/), **Streamable HTTP transport only** — the deprecated HTTP+SSE transport (2024-11-05) and stdio are not supported.
 
+**The registry is itself an MCP server.** Any MCP-capable model or agent can connect at `POST /mcp` and use five built-in tools to discover agents: `discover_agents`, `get_agent`, `get_a2a_card`, `get_mcp_server_card`, and `get_acp_manifest`. This means an AI model can ask the registry "find me a live summarisation agent that speaks A2A" and get a usable answer without any human in the loop.
+
+The registry also acts as a discovery service for other MCP servers — storing their server cards and exposing them for lookup:
+
+- `POST /mcp` — the registry's own MCP server endpoint (Streamable HTTP, public)
 - `GET /mcp/servers/{id}` — MCP server card for a registered server (public)
 - `GET /mcp/servers` — filtered list of MCP server cards (public)
 - `POST /mcp/servers` — register by submitting an MCP server card directly (Agent or Admin)
@@ -225,7 +230,7 @@ The registry accepts two authentication methods, selected by header:
   - A `registry_scope` claim with value `Admin` or `Agent`
   - A `roles` claim with value `registry.admin` or `registry.agent`
 
-Discovery and protocol card endpoints (`/discover/agents`, `/a2a/agents/*`, `/mcp/servers/*`) are always public — no auth required.
+Discovery, the MCP server endpoint, and protocol card endpoints (`/discover/agents`, `/mcp`, `/a2a/agents/*`, `/mcp/servers/*`) are always public — no auth required.
 
 ## API overview
 
@@ -255,6 +260,7 @@ Discovery and protocol card endpoints (`/discover/agents`, `/a2a/agents/*`, `/mc
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
+| `POST/GET` | `/mcp` | Public | Registry's own MCP server (Streamable HTTP) |
 | `GET` | `/mcp/servers/{id}` | Public | MCP server card for a registered server |
 | `GET` | `/mcp/servers` | Public | Filtered list of MCP server cards |
 | `POST` | `/mcp/servers` | Agent or Admin | Register by submitting an MCP server card |
