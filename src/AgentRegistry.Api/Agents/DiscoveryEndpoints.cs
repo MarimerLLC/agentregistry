@@ -1,0 +1,58 @@
+using AgentRegistry.Api.Agents.Models;
+using AgentRegistry.Application.Agents;
+using AgentRegistry.Domain.Agents;
+
+namespace AgentRegistry.Api.Agents;
+
+public static class DiscoveryEndpoints
+{
+    public static IEndpointRouteBuilder MapDiscoveryEndpoints(this IEndpointRouteBuilder app)
+    {
+        // Discovery is intentionally unauthenticated — the registry is a public index.
+        // Individual agents may enforce their own auth on their endpoints.
+        var group = app.MapGroup("/discover");
+
+        group.MapGet("/agents", DiscoverAgents).WithName("DiscoverAgents");
+
+        return app;
+    }
+
+    private static async Task<IResult> DiscoverAgents(
+        AgentService agentService,
+        string? capability = null,
+        string? tags = null,
+        string? protocol = null,
+        string? transport = null,
+        bool liveOnly = true,
+        int page = 1,
+        int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        ProtocolType? protocolType = protocol is not null && Enum.TryParse<ProtocolType>(protocol, ignoreCase: true, out var p) ? p : null;
+        TransportType? transportType = transport is not null && Enum.TryParse<TransportType>(transport, ignoreCase: true, out var t) ? t : null;
+        var tagList = tags?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        page = Math.Max(1, page);
+
+        var filter = new AgentSearchFilter(
+            CapabilityName: capability,
+            Tags: tagList,
+            Protocol: protocolType,
+            Transport: transportType,
+            LiveOnly: liveOnly,
+            Page: page,
+            PageSize: pageSize);
+
+        var result = await agentService.DiscoverAsync(filter, ct);
+
+        return Results.Ok(new PagedAgentResponse(
+            result.Items.Select(AgentResponse.From).ToList(),
+            result.TotalCount,
+            result.Page,
+            result.PageSize,
+            result.TotalPages,
+            result.HasNextPage,
+            result.HasPreviousPage));
+    }
+}

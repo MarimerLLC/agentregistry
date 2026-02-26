@@ -1,0 +1,43 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy solution and package management files first for layer caching.
+COPY AgentRegistry.slnx .
+COPY Directory.Build.props .
+COPY Directory.Packages.props .
+
+# Copy project files for restore (src + test csproj stubs — no test source needed).
+COPY src/AgentRegistry.Domain/AgentRegistry.Domain.csproj                    src/AgentRegistry.Domain/
+COPY src/AgentRegistry.Application/AgentRegistry.Application.csproj          src/AgentRegistry.Application/
+COPY src/AgentRegistry.Infrastructure/AgentRegistry.Infrastructure.csproj     src/AgentRegistry.Infrastructure/
+COPY src/AgentRegistry.Api/AgentRegistry.Api.csproj                          src/AgentRegistry.Api/
+COPY tests/AgentRegistry.Domain.Tests/AgentRegistry.Domain.Tests.csproj      tests/AgentRegistry.Domain.Tests/
+COPY tests/AgentRegistry.Application.Tests/AgentRegistry.Application.Tests.csproj tests/AgentRegistry.Application.Tests/
+COPY tests/AgentRegistry.Api.Tests/AgentRegistry.Api.Tests.csproj            tests/AgentRegistry.Api.Tests/
+
+RUN dotnet restore AgentRegistry.slnx
+
+# Copy source and publish.
+COPY src/ src/
+RUN dotnet publish src/AgentRegistry.Api/AgentRegistry.Api.csproj \
+    --configuration Release \
+    --output /app/publish
+
+# ── Runtime image ─────────────────────────────────────────────────────────────
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+
+# Non-root user for least-privilege execution.
+RUN groupadd --system --gid 1001 agentregistry \
+ && useradd  --system --uid 1001 --gid agentregistry agentregistry
+
+COPY --from=build --chown=agentregistry:agentregistry /app/publish .
+
+USER agentregistry
+
+# ASP.NET Core defaults to port 8080 in container environments.
+EXPOSE 8080
+
+ENV ASPNETCORE_URLS=http://+:8080
+
+ENTRYPOINT ["dotnet", "AgentRegistry.Api.dll"]

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentregistry-config
+  namespace: default
+data:
+  # Runs any pending EF Core migrations on startup.
+  # Set to "false" if you prefer migration-per-deploy workflows.
+  Database__AutoMigrate: "true"
+  ASPNETCORE_ENVIRONMENT: "Production"
+  Logging__LogLevel__Default: "Information"
+  Logging__LogLevel__Microsoft.AspNetCore: "Warning"
+  Logging__LogLevel__Microsoft.EntityFrameworkCore: "Warning"
+  Jwt__Audience: "agentregistry"

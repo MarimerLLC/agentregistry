@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentregistry
+  namespace: default
+  labels:
+    app: agentregistry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agentregistry
+  template:
+    metadata:
+      labels:
+        app: agentregistry
+    spec:
+      containers:
+        - name: agentregistry
+          # Replace with your registry/image:tag, e.g. ghcr.io/yourorg/agentregistry:latest
+          image: agentregistry:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: agentregistry-config
+            - secretRef:
+                name: agentregistry-secrets
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop: ["ALL"]
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
