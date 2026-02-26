@@ -12,7 +12,21 @@ public static class DiscoveryEndpoints
         // Individual agents may enforce their own auth on their endpoints.
         var group = app.MapGroup("/discover");
 
-        group.MapGet("/agents", DiscoverAgents).WithName("DiscoverAgents");
+        group.MapGet("/agents", DiscoverAgents)
+            .WithName("DiscoverAgents")
+            .WithTags("Agents")
+            .WithSummary("Discover registered agents")
+            .WithDescription(
+                "Returns a paginated list of agents matching the given filters. By default only agents " +
+                "with at least one live endpoint in Redis are returned.\n\n" +
+                "**Filters**\n" +
+                "- `capability` — match agents that declare a capability with this exact name\n" +
+                "- `tags` — comma-separated list; agents must match all supplied tags\n" +
+                "- `protocol` — filter by protocol: `A2A`, `MCP`, `ACP`, or `Generic`\n" +
+                "- `transport` — filter by transport: `Http`, `AzureServiceBus`, or `Amqp`\n" +
+                "- `liveOnly` — when `false`, includes agents with no live endpoints (default: `true`)\n" +
+                "- `page` / `pageSize` — 1-based page number and page size (max 100, default 20)")
+            .Produces<PagedAgentResponse>(StatusCodes.Status200OK);
 
         return app;
     }

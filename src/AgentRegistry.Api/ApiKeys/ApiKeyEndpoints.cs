@@ -12,16 +12,52 @@ public static class ApiKeyEndpoints
 {
     public static IEndpointRouteBuilder MapApiKeyEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api-keys");
+        var group = app.MapGroup("/api-keys").WithTags("API Keys");
 
         // All key management is Admin-only.
-        group.MapPost("/", IssueKey).RequireAuthorization(RegistryPolicies.AdminOnly).WithName("IssueApiKey");
-        group.MapGet("/", ListKeys).RequireAuthorization(RegistryPolicies.AdminOnly).WithName("ListApiKeys");
-        group.MapDelete("/{keyId}", RevokeKey).RequireAuthorization(RegistryPolicies.AdminOnly).WithName("RevokeApiKey");
+        group.MapPost("/", IssueKey)
+            .RequireAuthorization(RegistryPolicies.AdminOnly)
+            .WithName("IssueApiKey")
+            .WithSummary("Issue a new API key")
+            .WithDescription("Creates a new API key for the authenticated owner. The raw key is returned exactly once in the response and cannot be retrieved again — store it immediately.")
+            .Produces<IssueApiKeyResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        group.MapGet("/", ListKeys)
+            .RequireAuthorization(RegistryPolicies.AdminOnly)
+            .WithName("ListApiKeys")
+            .WithSummary("List API keys")
+            .WithDescription("Returns all active and revoked API keys owned by the authenticated principal. Raw key values are never returned.")
+            .Produces<IEnumerable<ApiKeyResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        group.MapDelete("/{keyId}", RevokeKey)
+            .RequireAuthorization(RegistryPolicies.AdminOnly)
+            .WithName("RevokeApiKey")
+            .WithSummary("Revoke an API key")
+            .WithDescription("Marks an API key as revoked. Revoked keys are immediately rejected at authentication. Only the owning principal may revoke their own keys.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         // Bootstrap — no auth; dark unless Bootstrap:Token is set in configuration.
         // Always issues an Admin-scoped key. Use once to create the first key, then remove the token from config.
-        group.MapPost("/bootstrap", Bootstrap).WithName("BootstrapApiKey");
+        group.MapPost("/bootstrap", Bootstrap)
+            .WithName("BootstrapApiKey")
+            .WithSummary("Issue the first Admin key (bootstrap)")
+            .WithDescription(
+                "Issues an Admin-scoped API key without requiring prior authentication. " +
+                "This endpoint is only active when `Bootstrap:Token` is set in configuration — it returns 404 otherwise.\n\n" +
+                "Supply the configured token in the `X-Bootstrap-Token` header. " +
+                "Use this once to obtain the first Admin key for a new deployment, " +
+                "then remove `Bootstrap:Token` from configuration to permanently disable the endpoint.\n\n" +
+                "The raw key is returned exactly once.")
+            .Produces<IssueApiKeyResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;
     }

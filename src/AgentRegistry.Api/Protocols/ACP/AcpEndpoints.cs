@@ -13,13 +13,36 @@ public static class AcpEndpoints
         var group = app.MapGroup("/acp").WithTags("ACP");
 
         // Public discovery — mirrors the ACP /agents convention in the registry namespace.
-        group.MapGet("/agents/{id}", GetManifest).WithName("AcpGetAgentManifest");
-        group.MapGet("/agents", ListManifests).WithName("AcpListAgents");
+        group.MapGet("/agents/{id}", GetManifest)
+            .WithName("AcpGetAgentManifest")
+            .WithSummary("Get an ACP agent manifest")
+            .WithDescription("Returns the ACP 0.2.0 agent manifest for a registered agent, including MIME-typed content types, JSON Schema for inputs and outputs, and performance metrics. Returns 404 if the agent has no ACP endpoints.")
+            .Produces<object>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapGet("/agents", ListManifests)
+            .WithName("AcpListAgents")
+            .WithSummary("List ACP agent manifests")
+            .WithDescription(
+                "Returns a paginated list of ACP agent manifests for registered agents.\n\n" +
+                "**Filters**\n" +
+                "- `capability` — match agents that declare a capability with this exact name\n" +
+                "- `tags` — comma-separated list; agents must match all supplied tags\n" +
+                "- `domain` — ACP domain filter (stored as a tag, merged with `tags`)\n" +
+                "- `liveOnly` — when `false`, includes agents with no live endpoints (default: `true`)\n" +
+                "- `page` / `pageSize` — 1-based page number and page size (max 100, default 20)")
+            .Produces<object>(StatusCodes.Status200OK);
 
         // ACP-native registration — submit a manifest to register.
         group.MapPost("/agents", RegisterViaManifest)
             .RequireAuthorization(RegistryPolicies.AgentOrAdmin)
-            .WithName("AcpRegisterAgent");
+            .WithName("AcpRegisterAgent")
+            .WithSummary("Register an agent via ACP manifest")
+            .WithDescription("Registers an agent by submitting a native ACP 0.2.0 manifest and the agent's endpoint URL. Capabilities are mapped from the manifest's metadata and all manifest fields round-trip through protocol metadata.")
+            .Produces<object>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         return app;
     }

@@ -11,20 +11,87 @@ public static class AgentEndpoints
 {
     public static IEndpointRouteBuilder MapAgentEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/agents").RequireAuthorization(RegistryPolicies.AgentOrAdmin);
+        var group = app.MapGroup("/agents")
+            .RequireAuthorization(RegistryPolicies.AgentOrAdmin)
+            .WithTags("Agents");
 
-        group.MapPost("/", RegisterAgent).WithName("RegisterAgent");
-        group.MapGet("/{id}", GetAgent).WithName("GetAgent");
-        group.MapPut("/{id}", UpdateAgent).WithName("UpdateAgent");
-        group.MapDelete("/{id}", DeregisterAgent).WithName("DeregisterAgent");
+        group.MapPost("/", RegisterAgent)
+            .WithName("RegisterAgent")
+            .WithSummary("Register an agent")
+            .WithDescription("Creates a new agent registration with the specified name, capabilities, and endpoints. The caller becomes the owner. Returns the created agent with its assigned ID.")
+            .Produces<AgentResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        group.MapGet("/{id}", GetAgent)
+            .WithName("GetAgent")
+            .WithSummary("Get an agent by ID")
+            .WithDescription("Returns the agent record including all endpoints and real-time liveness status from Redis. Returns 404 if the agent does not exist.")
+            .Produces<AgentResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPut("/{id}", UpdateAgent)
+            .WithName("UpdateAgent")
+            .WithSummary("Update agent metadata")
+            .WithDescription("Updates the name, description, and labels of an existing agent. Only the owning principal may update an agent. Capabilities and endpoints are managed separately.")
+            .Produces<AgentResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapDelete("/{id}", DeregisterAgent)
+            .WithName("DeregisterAgent")
+            .WithSummary("Deregister an agent")
+            .WithDescription("Permanently removes the agent and all its endpoints from the registry. Liveness keys in Redis are also deleted. Only the owning principal may deregister.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         // Endpoint management
-        group.MapPost("/{agentId}/endpoints", AddEndpoint).WithName("AddEndpoint");
-        group.MapDelete("/{agentId}/endpoints/{endpointId}", RemoveEndpoint).WithName("RemoveEndpoint");
+        group.MapPost("/{agentId}/endpoints", AddEndpoint)
+            .WithName("AddEndpoint")
+            .WithSummary("Add an endpoint to an agent")
+            .WithDescription("Adds a new endpoint to an existing agent, creating a liveness entry in Redis immediately. The endpoint's liveness model (Ephemeral or Persistent) determines how liveness is subsequently maintained.")
+            .Produces<EndpointResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapDelete("/{agentId}/endpoints/{endpointId}", RemoveEndpoint)
+            .WithName("RemoveEndpoint")
+            .WithSummary("Remove an endpoint from an agent")
+            .WithDescription("Removes an endpoint from the agent and deletes its Redis liveness key. The agent itself remains registered. Only the owning principal may remove endpoints.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         // Liveness
-        group.MapPost("/{agentId}/endpoints/{endpointId}/heartbeat", Heartbeat).WithName("Heartbeat");
-        group.MapPost("/{agentId}/endpoints/{endpointId}/renew", Renew).WithName("RenewEndpoint");
+        group.MapPost("/{agentId}/endpoints/{endpointId}/heartbeat", Heartbeat)
+            .WithName("Heartbeat")
+            .WithSummary("Send a heartbeat for a Persistent endpoint")
+            .WithDescription("Resets the liveness TTL for a Persistent endpoint. Call this at an interval shorter than the endpoint's heartbeatIntervalSeconds to keep it marked live. Returns 400 if the endpoint uses the Ephemeral liveness model.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{agentId}/endpoints/{endpointId}/renew", Renew)
+            .WithName("RenewEndpoint")
+            .WithSummary("Renew the TTL for an Ephemeral endpoint")
+            .WithDescription("Extends the registration TTL for an Ephemeral endpoint back to its configured ttlSeconds. Call this on each invocation (e.g. at the start of a serverless function) to keep the endpoint discoverable. Returns 400 if the endpoint uses the Persistent liveness model.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;
     }

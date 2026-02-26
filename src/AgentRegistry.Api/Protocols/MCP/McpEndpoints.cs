@@ -13,13 +13,35 @@ public static class McpEndpoints
         var group = app.MapGroup("/mcp").WithTags("MCP");
 
         // Public discovery — no auth required.
-        group.MapGet("/servers/{id}", GetServerCard).WithName("McpGetServerCard");
-        group.MapGet("/servers", ListServerCards).WithName("McpListServers");
+        group.MapGet("/servers/{id}", GetServerCard)
+            .WithName("McpGetServerCard")
+            .WithSummary("Get an MCP server card")
+            .WithDescription("Returns the MCP server card for a registered server, including the Streamable HTTP endpoint URL and declared tools, resources, and prompts. Returns 404 if the agent has no MCP endpoints.")
+            .Produces<object>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapGet("/servers", ListServerCards)
+            .WithName("McpListServers")
+            .WithSummary("List MCP server cards")
+            .WithDescription(
+                "Returns a paginated list of MCP server cards. Only servers with a Streamable HTTP endpoint are included.\n\n" +
+                "**Filters**\n" +
+                "- `capability` — match servers that declare a tool with this exact name\n" +
+                "- `tags` — comma-separated list; servers must match all supplied tags\n" +
+                "- `liveOnly` — when `false`, includes servers with no live endpoints (default: `true`)\n" +
+                "- `page` / `pageSize` — 1-based page number and page size (max 100, default 20)")
+            .Produces<object>(StatusCodes.Status200OK);
 
         // MCP-native registration — submit a server card to register.
         group.MapPost("/servers", RegisterViaCard)
             .RequireAuthorization(RegistryPolicies.AgentOrAdmin)
-            .WithName("McpRegisterServer");
+            .WithName("McpRegisterServer")
+            .WithSummary("Register an MCP server via server card")
+            .WithDescription("Registers an MCP server by submitting a native MCP server card. The card must include a Streamable HTTP endpoint in `endpoints.streamableHttp`. Tool, resource, and prompt descriptors round-trip through protocol metadata.")
+            .Produces<object>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         return app;
     }
