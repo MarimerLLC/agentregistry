@@ -4,6 +4,8 @@ using AgentRegistry.Api.Auth;
 using AgentRegistry.Api.Protocols.A2A;
 using AgentRegistry.Api.Protocols.ACP;
 using AgentRegistry.Api.Protocols.MCP;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
 using AgentRegistry.Application.Agents;
 using AgentRegistry.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -82,6 +84,14 @@ builder.Services
 builder.Services.AddInfrastructure(pgConn, redisConn);
 builder.Services.AddScoped<AgentService>();
 
+// MCP server — exposes registry discovery as MCP tools at POST/GET /mcp
+builder.Services.AddMcpServer(opts =>
+    {
+        opts.ServerInfo = new Implementation { Name = "AgentRegistry", Version = "1.0.0" };
+    })
+    .WithHttpTransport()
+    .WithTools<AgentRegistryMcpTools>();
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultScheme = "Smart";
@@ -141,6 +151,9 @@ app.MapHealthChecks("/readyz", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready")
 });
+
+// MCP Streamable HTTP endpoint — POST/GET /mcp (spec 2025-11-25)
+app.MapMcp("/mcp");
 
 app.MapAgentEndpoints();
 app.MapDiscoveryEndpoints();
