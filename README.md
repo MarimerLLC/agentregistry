@@ -18,19 +18,20 @@ AgentRegistry is the connective tissue. An agent registers itself when it starts
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    AgentRegistry.Api                    │
-│  ASP.NET Core 10 · Minimal APIs · Scalar UI             │
-│  Auth: API key (Admin/Agent scopes) + JWT Bearer        │
-└────────────┬───────────────────────┬────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                       AgentRegistry.Api                         │
+│  ASP.NET Core 10 · Minimal APIs · Scalar UI · OpenTelemetry     │
+│  Auth: API key (Admin/Agent scopes) + JWT Bearer                │
+│  Protocol adapters: A2A · MCP                                   │
+└────────────┬───────────────────────┬────────────────────────────┘
              │                       │
-┌────────────▼───────┐   ┌───────────▼────────────────────┐
-│ AgentRegistry.     │   │ AgentRegistry.Infrastructure    │
-│ Application        │   │  SqlAgentRepository (EF Core)   │
-│  AgentService      │   │  RedisLivenessStore             │
-│  IApiKeyService    │   │  SqlApiKeyService               │
-│  IAgentRepository  │   │  PostgreSQL · Redis             │
-│  ILivenessStore    │   └────────────────────────────────-┘
+┌────────────▼───────┐   ┌───────────▼────────────────────────────┐
+│ AgentRegistry.     │   │ AgentRegistry.Infrastructure            │
+│ Application        │   │  SqlAgentRepository (EF Core + Npgsql)  │
+│  AgentService      │   │  RedisLivenessStore                     │
+│  IApiKeyService    │   │  SqlApiKeyService                       │
+│  IAgentRepository  │   │  PostgreSQL · Redis                     │
+│  ILivenessStore    │   └────────────────────────────────────────-┘
 └────────────┬───────┘
              │
 ┌────────────▼───────┐
@@ -52,6 +53,40 @@ AgentRegistry is the connective tissue. An agent registers itself when it starts
 
 **Observability** — OpenTelemetry traces and metrics; Serilog structured logging to console with OTLP export when `Otel:Endpoint` is configured.
 
+## Protocol support
+
+Detailed design rationale for each adapter is in [`/docs`](docs/):
+
+- [A2A adapter design](docs/protocol-a2a.md)
+- [MCP adapter design](docs/protocol-mcp.md)
+
+### A2A (Agent-to-Agent)
+
+Targets the [A2A v1.0 RC spec](https://a2a-protocol.org/). The registry serves A2A agent cards and accepts A2A-native registration.
+
+- `GET /.well-known/agent.json` — the registry's own A2A agent card
+- `GET /a2a/agents/{id}` — agent card for any registered A2A agent (public)
+- `POST /a2a/agents` — register by submitting an A2A agent card directly (Agent or Admin)
+
+Agent capabilities map to A2A skills. Protocol-specific fields (streaming capability, security schemes, provider, icon URL, etc.) round-trip through `Endpoint.ProtocolMetadata` so nothing is lost.
+
+### MCP (Model Context Protocol)
+
+Targets the [MCP spec 2025-11-25](https://modelcontextprotocol.io/), **Streamable HTTP transport only** — the deprecated HTTP+SSE transport (2024-11-05) and stdio are not supported. The registry is a discovery service for MCP servers; it does not implement the MCP JSON-RPC wire protocol itself.
+
+- `GET /mcp/servers/{id}` — MCP server card for a registered server (public)
+- `GET /mcp/servers` — filtered list of MCP server cards (public)
+- `POST /mcp/servers` — register by submitting an MCP server card directly (Agent or Admin)
+
+Tool, resource, and prompt descriptors (including JSON Schema) round-trip through `Endpoint.ProtocolMetadata`. The `isLive` field on returned cards reflects real-time Redis liveness.
+
+### Generic (protocol-agnostic)
+
+All protocols can also be registered and discovered through the generic API, which returns the registry's own domain model rather than protocol-native card formats.
+
+- `POST /agents` — register with explicit `protocol` and `transport` fields
+- `GET /discover/agents?protocol=MCP&transport=Http` — filter by any combination
+
 ## Prerequisites
 
 - .NET 10 SDK
@@ -64,7 +99,7 @@ AgentRegistry is the connective tissue. An agent registers itself when it starts
 ### 1. Clone and restore
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/MarimerLLC/agentregistry
 cd AgentRegistry
 dotnet restore
 ```
@@ -179,9 +214,11 @@ The registry accepts two authentication methods, selected by header:
   - A `registry_scope` claim with value `Admin` or `Agent`
   - A `roles` claim with value `registry.admin` or `registry.agent`
 
-Discovery (`GET /discover/agents`) is always public — no auth required.
+Discovery and protocol card endpoints (`/discover/agents`, `/a2a/agents/*`, `/mcp/servers/*`) are always public — no auth required.
 
 ## API overview
+
+### Generic agent management
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
@@ -194,6 +231,27 @@ Discovery (`GET /discover/agents`) is always public — no auth required.
 | `POST` | `/agents/{id}/endpoints/{eid}/heartbeat` | Agent or Admin (owner) | Persistent liveness reset |
 | `POST` | `/agents/{id}/endpoints/{eid}/renew` | Agent or Admin (owner) | Ephemeral TTL renewal |
 | `GET` | `/discover/agents` | Public | Discover live agents |
+
+### A2A protocol
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/.well-known/agent.json` | Public | Registry's own A2A agent card |
+| `GET` | `/a2a/agents/{id}` | Public | A2A agent card for a registered agent |
+| `POST` | `/a2a/agents` | Agent or Admin | Register by submitting an A2A agent card |
+
+### MCP protocol
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/mcp/servers/{id}` | Public | MCP server card for a registered server |
+| `GET` | `/mcp/servers` | Public | Filtered list of MCP server cards |
+| `POST` | `/mcp/servers` | Agent or Admin | Register by submitting an MCP server card |
+
+### Key management and system
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
 | `POST` | `/api-keys` | Admin | Issue a new API key |
 | `GET` | `/api-keys` | Admin | List your API keys |
 | `DELETE` | `/api-keys/{id}` | Admin | Revoke an API key |
@@ -308,10 +366,16 @@ src/
   AgentRegistry.Application/    Use cases, interfaces, service logic
   AgentRegistry.Infrastructure/ EF Core (PostgreSQL), Redis, SQL API key service
   AgentRegistry.Api/            ASP.NET Core 10 minimal API, auth, Scalar
+    Protocols/
+      A2A/                      A2A v1.0 RC agent card adapter
+      MCP/                      MCP 2025-11-25 server card adapter (Streamable HTTP)
 tests/
   AgentRegistry.Domain.Tests/       Domain unit tests
   AgentRegistry.Application.Tests/  Service tests using Rocks source-gen mocks
   AgentRegistry.Api.Tests/          Integration tests via WebApplicationFactory
+    Protocols/
+      A2A/                          A2A endpoint tests
+      MCP/                          MCP endpoint tests
 k8s/
   redis.yaml                    Redis StatefulSet + Service
   agentregistry/
