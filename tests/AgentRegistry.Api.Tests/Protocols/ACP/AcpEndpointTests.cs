@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using MarimerLLC.AgentRegistry.Api.Agents.Models;
 using MarimerLLC.AgentRegistry.Api.Protocols.ACP.Models;
 using MarimerLLC.AgentRegistry.Api.Tests.Infrastructure;
@@ -247,6 +248,38 @@ public class AcpEndpointTests(AgentRegistryFactory factory) : IClassFixture<Agen
         Assert.Equal("LangChain", fetched.Metadata!.Framework);
         Assert.Equal("MIT", fetched.Metadata.License);
         Assert.Equal("Acme Corp", fetched.Metadata.Author?.Name);
+    }
+
+    [Fact]
+    public async Task RegisterViaManifest_SecuritySchemesRoundTrip()
+    {
+        var manifest = BuildSampleManifest("secured-agent") with
+        {
+            SecuritySchemes = new JsonObject
+            {
+                ["apiKey"] = new JsonObject
+                {
+                    ["type"] = "apiKey",
+                    ["in"] = "header",
+                    ["name"] = "X-Api-Key"
+                }
+            }
+        };
+
+        var createResponse = await _agent.PostAsJsonAsync("/acp/agents", new
+        {
+            manifest,
+            endpointUrl = "https://secured.example.com/acp"
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<AcpAgentManifest>();
+        var fetched = await _anon.GetFromJsonAsync<AcpAgentManifest>($"/acp/agents/{created!.Id}");
+
+        Assert.NotNull(fetched?.SecuritySchemes);
+        var apiKey = fetched.SecuritySchemes!["apiKey"]?.AsObject();
+        Assert.NotNull(apiKey);
+        Assert.Equal("apiKey", apiKey["type"]?.GetValue<string>());
+        Assert.Equal("header", apiKey["in"]?.GetValue<string>());
+        Assert.Equal("X-Api-Key", apiKey["name"]?.GetValue<string>());
     }
 
     [Fact]

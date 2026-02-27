@@ -48,6 +48,16 @@ public record AcpAgentManifest
     /// <summary>Whether the agent's ACP endpoint is currently live.</summary>
     [JsonPropertyName("is_live")]
     public bool IsLive { get; init; }
+
+    /// <summary>
+    /// OpenAPI 3.0-style security scheme definitions describing what the caller must
+    /// provide to invoke this agent (e.g. API key header name, OAuth flow URLs).
+    /// The actual credential is never stored here — only the scheme metadata.
+    /// Registry-added annotation; not part of the ACP 0.2.0 spec.
+    /// </summary>
+    [JsonPropertyName("security_schemes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonObject? SecuritySchemes { get; init; }
 }
 
 public record AcpMetadata

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using MarimerLLC.AgentRegistry.Api.Protocols.ACP.Models;
 using MarimerLLC.AgentRegistry.Application.Agents;
 using MarimerLLC.AgentRegistry.Domain.Agents;
@@ -85,6 +86,7 @@ public static class AcpAgentManifestMapper
                 ThreadStateSchema = stored?.Metadata?.ThreadStateSchema,
             },
             Status = stored?.Status,
+            SecuritySchemes = stored?.SecuritySchemes,
         };
     }
 
@@ -124,6 +126,7 @@ public static class AcpAgentManifestMapper
             Capabilities = manifest.Metadata?.Capabilities?.ToList(),
             Metadata = manifest.Metadata,
             Status = manifest.Status,
+            SecuritySchemes = manifest.SecuritySchemes,
         }, JsonSerializerOptions.Web);
 
         var endpoints = new[]
@@ -162,5 +165,6 @@ public static class AcpAgentManifestMapper
         public List<AcpCapability>? Capabilities { get; init; }
         public AcpMetadata? Metadata { get; init; }
         public AcpStatus? Status { get; init; }
+        public JsonObject? SecuritySchemes { get; init; }
     }
 }
