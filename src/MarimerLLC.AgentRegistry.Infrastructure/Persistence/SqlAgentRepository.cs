@@ -63,4 +63,10 @@ public class SqlAgentRepository(AgentRegistryDbContext db) : IAgentRepository
         var deleted = await db.Agents.Where(a => a.Id == id).ExecuteDeleteAsync(ct);
         return deleted > 0;
     }
+
+    public async Task<IReadOnlyList<Endpoint>> GetEphemeralEndpointsAliveAfterAsync(
+        DateTimeOffset since, CancellationToken ct = default)
+        => await db.Set<Endpoint>()
+               .Where(e => e.LivenessModel == LivenessModel.Ephemeral && e.LastAliveAt >= since)
+               .ToListAsync(ct);
 }

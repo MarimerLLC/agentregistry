@@ -30,6 +30,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ILivenessStore, RedisLivenessStore>();
         services.AddScoped<IApiKeyService, SqlApiKeyService>();
 
+        services.AddHostedService<EphemeralReseedService>();
+
         return services;
     }
 

@@ -69,6 +69,7 @@ public class AgentRegistryDbContext(DbContextOptions<AgentRegistryDbContext> opt
                     v => v.HasValue ? (double?)v.Value.TotalSeconds : null,
                     v => v.HasValue ? TimeSpan.FromSeconds(v.Value) : null);
             e.Property(x => x.ProtocolMetadata).HasColumnName("protocol_metadata").HasColumnType("jsonb");
+            e.Property(x => x.LastAliveAt).HasColumnName("last_alive_at");
 
             e.HasIndex(x => x.AgentId).HasDatabaseName("ix_endpoints_agent_id");
             e.HasIndex(x => new { x.Transport, x.Protocol }).HasDatabaseName("ix_endpoints_transport_protocol");

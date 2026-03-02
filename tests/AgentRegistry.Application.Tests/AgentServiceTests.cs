@@ -169,6 +169,8 @@ public class AgentServiceTests
         var repoExpectations = new IAgentRepositoryCreateExpectations();
         repoExpectations.Setups.FindByIdAsync(agent.Id, Arg.Any<CancellationToken>())
             .ReturnValue(Task.FromResult<Agent?>(agent));
+        repoExpectations.Setups.UpdateAsync(agent, Arg.Any<CancellationToken>())
+            .ReturnValue(Task.CompletedTask);
 
         var livenessExpectations = new ILivenessStoreCreateExpectations();
         livenessExpectations.Setups.SetAliveAsync(endpoint.Id, TimeSpan.FromMinutes(5), Arg.Any<CancellationToken>())
@@ -179,6 +181,7 @@ public class AgentServiceTests
         await sut.RenewAsync(agent.Id, endpoint.Id, "owner-1");
 
         livenessExpectations.Verify();
+        repoExpectations.Verify();
     }
 
     // ── Deregister ────────────────────────────────────────────────────────────

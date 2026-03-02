@@ -56,5 +56,13 @@ public class InMemoryAgentRepository : IAgentRepository
         return Task.FromResult(removed);
     }
 
+    public Task<IReadOnlyList<Endpoint>> GetEphemeralEndpointsAliveAfterAsync(
+        DateTimeOffset since, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<Endpoint>>(
+            _store.Values
+                .SelectMany(a => a.Endpoints)
+                .Where(e => e.LivenessModel == LivenessModel.Ephemeral && e.LastAliveAt >= since)
+                .ToList());
+
     public void Clear() => _store.Clear();
 }

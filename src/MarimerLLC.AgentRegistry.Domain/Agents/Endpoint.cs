@@ -39,6 +39,12 @@ public class Endpoint
     /// </summary>
     public string? ProtocolMetadata { get; private set; }
 
+    /// <summary>
+    /// UTC timestamp of the most recent registration or liveness renewal.
+    /// Used to reseed ephemeral endpoint liveness after a registry restart.
+    /// </summary>
+    public DateTimeOffset? LastAliveAt { get; private set; }
+
     public Endpoint(
         EndpointId id,
         AgentId agentId,
@@ -65,10 +71,13 @@ public class Endpoint
         TtlDuration = ttlDuration;
         HeartbeatInterval = heartbeatInterval;
         ProtocolMetadata = protocolMetadata;
+        LastAliveAt = DateTimeOffset.UtcNow;
     }
 
     // EF Core constructor
     private Endpoint() { Id = default; AgentId = default; Name = null!; Address = null!; }
+
+    public void RecordAlive() => LastAliveAt = DateTimeOffset.UtcNow;
 
     public void UpdateMetadata(string name, string address, string? protocolMetadata)
     {

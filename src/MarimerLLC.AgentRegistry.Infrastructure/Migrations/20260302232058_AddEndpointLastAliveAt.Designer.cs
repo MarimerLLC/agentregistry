@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using MarimerLLC.AgentRegistry.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MarimerLLC.AgentRegistry.Infrastructure.Migrations
 {
     [DbContext(typeof(AgentRegistryDbContext))]
-    partial class AgentRegistryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260302232058_AddEndpointLastAliveAt")]
+    partial class AddEndpointLastAliveAt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

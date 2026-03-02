@@ -118,6 +118,8 @@ public class AgentService(IAgentRepository repository, ILivenessStore livenessSt
             throw new InvalidOperationException($"Endpoint {endpointId} uses {endpoint.LivenessModel} liveness; use /heartbeat instead.");
 
         await livenessStore.SetAliveAsync(endpoint.Id, endpoint.EffectiveLivenessTtl(), ct);
+        endpoint.RecordAlive();
+        await repository.UpdateAsync(agent, ct);
     }
 
     // ── Discovery ─────────────────────────────────────────────────────────────
