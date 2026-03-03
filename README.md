@@ -22,7 +22,7 @@ AgentRegistry is the connective tissue. An agent registers itself when it starts
 │                       AgentRegistry.Api                         │
 │  ASP.NET Core 10 · Minimal APIs · Scalar UI · OpenTelemetry     │
 │  Auth: API key (Admin/Agent scopes) + JWT Bearer                │
-│  Protocol adapters: A2A · MCP                                   │
+│  Protocol adapters: A2A · MCP · ACP · Queued A2A                │
 └────────────┬───────────────────────┬────────────────────────────┘
              │                       │
 ┌────────────▼───────┐   ┌───────────▼────────────────────────────┐
@@ -60,6 +60,7 @@ Detailed design rationale for each adapter is in [`/docs`](docs/):
 - [A2A adapter design](docs/protocol-a2a.md)
 - [MCP adapter design](docs/protocol-mcp.md)
 - [ACP adapter design](docs/protocol-acp.md)
+- [Queued A2A adapter design](docs/protocol-queued-a2a.md)
 
 ### A2A (Agent-to-Agent)
 
@@ -95,6 +96,18 @@ Targets [ACP spec 0.2.0](https://github.com/i-am-bee/acp) (IBM Research / BeeAI)
 - `POST /acp/agents` — register by submitting an ACP manifest + endpoint URL (Agent or Admin)
 
 The manifest carries MIME-typed content types, JSON Schema for input/output/config/thread state, performance status metrics, and rich metadata (framework, natural languages, license, author). All fields round-trip through `Endpoint.ProtocolMetadata`. Agent names are normalised to RFC 1123 DNS-label format on manifest generation.
+
+### Queued A2A (A2A over async message brokers)
+
+Agents that communicate via **RabbitMQ** or **Azure Service Bus** rather than HTTP. The A2A wire protocol (task request / status update / result message shapes) is unchanged — only the transport differs. Callers publish A2A task messages to a named topic on the broker and receive responses asynchronously, enabling KEDA-scaled workers, long-running tasks, and decoupled agent pipelines.
+
+- `GET /a2a/async/agents/{id}` — queued A2A agent card with full broker connection details (public)
+- `GET /a2a/async/agents` — filtered list of queued agents (public)
+- `POST /a2a/async/agents` — register by submitting a queued agent card (Agent or Admin)
+
+The `queueEndpoint` object in each card carries `technology` (`"rabbitmq"` or `"azure-service-bus"`), `host`, `port`, `virtualHost`, `exchange`, `taskTopic` (where callers publish), and `responseTopic` (where callers listen for replies). For Azure Service Bus, `namespace` and `entityPath` replace the AMQP-specific fields.
+
+Queued agents also appear in `GET /discover/agents?protocol=A2A` alongside HTTP A2A agents since they share the same protocol type. See [Queued A2A adapter design](docs/protocol-queued-a2a.md) for the full design rationale.
 
 ### Generic (protocol-agnostic)
 
@@ -230,7 +243,7 @@ The registry accepts two authentication methods, selected by header:
   - A `registry_scope` claim with value `Admin` or `Agent`
   - A `roles` claim with value `registry.admin` or `registry.agent`
 
-Discovery, the MCP server endpoint, and protocol card endpoints (`/discover/agents`, `/mcp`, `/a2a/agents/*`, `/mcp/servers/*`) are always public — no auth required.
+Discovery, the MCP server endpoint, and protocol card endpoints (`/discover/agents`, `/mcp`, `/a2a/agents/*`, `/a2a/async/agents/*`, `/mcp/servers/*`, `/acp/agents/*`) are always public — no auth required.
 
 ## API overview
 
@@ -272,6 +285,14 @@ Discovery, the MCP server endpoint, and protocol card endpoints (`/discover/agen
 | `GET` | `/acp/agents/{id}` | Public | ACP agent manifest for a registered agent |
 | `GET` | `/acp/agents` | Public | Filtered list of ACP agent manifests |
 | `POST` | `/acp/agents` | Agent or Admin | Register by submitting an ACP agent manifest |
+
+### Queued A2A protocol
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/a2a/async/agents/{id}` | Public | Queued A2A card with broker connection details |
+| `GET` | `/a2a/async/agents` | Public | Filtered list of queued A2A agent cards |
+| `POST` | `/a2a/async/agents` | Agent or Admin | Register an agent with queue endpoint details |
 
 ### Key management and system
 
@@ -354,20 +375,53 @@ The two services are non-conflicting — if a config-defined agent also self-reg
 
 ## Queue-backed agents
 
-Agents using AMQP or Azure Service Bus don't need to be running when discovered. The registry stores the queue address as the endpoint:
+Agents using AMQP or Azure Service Bus don't need to be running when discovered. The registry stores the queue address as the endpoint. There are two ways to register a queue-backed agent:
+
+### Queued A2A (recommended for A2A agents over a broker)
+
+Use `POST /a2a/async/agents` with the full `queueEndpoint` connection details:
+
+```json
+{
+  "name": "ResearchAgent",
+  "description": "On-demand research agent",
+  "version": "1.0",
+  "skills": [{ "id": "research", "name": "Research", "description": "Researches a topic", "tags": ["search"] }],
+  "defaultInputModes": ["application/json"],
+  "defaultOutputModes": ["application/json"],
+  "queueEndpoint": {
+    "technology": "rabbitmq",
+    "host": "rabbitmq.example.com",
+    "port": 5672,
+    "virtualHost": "/",
+    "exchange": "rockbot",
+    "taskTopic": "agent.task.ResearchAgent",
+    "responseTopic": "agent.response.{callerName}"
+  }
+}
+```
+
+Clients discover the agent via `GET /a2a/async/agents` and receive the full broker connection details needed to publish A2A task messages directly.
+
+### Generic registration
+
+Use `POST /agents` with explicit `transport` and `protocol` fields. This works for any protocol/transport combination but returns the registry's internal model rather than a protocol-native card:
 
 ```json
 {
   "name": "async-processor",
-  "transport": "AzureServiceBus",
-  "protocol": "A2A",
-  "address": "agents/summarizer/requests",
-  "livenessModel": "Ephemeral",
-  "ttlSeconds": 60
+  "endpoints": [{
+    "name": "queue",
+    "transport": "AzureServiceBus",
+    "protocol": "A2A",
+    "address": "agents/summarizer/requests",
+    "livenessModel": "Ephemeral",
+    "ttlSeconds": 60
+  }]
 }
 ```
 
-A KEDA-scaled worker registers on startup, processes jobs, and the TTL expires naturally when the scaling group idles. Consumers route work to the queue address — whether the worker is currently running or not is KEDA's concern.
+In both cases, a KEDA-scaled worker registers on startup, processes jobs, and the TTL expires naturally when the scaling group idles. Consumers route work to the queue address — whether the worker is currently running or not is KEDA's concern. See [Queued A2A adapter design](docs/protocol-queued-a2a.md) for the full pattern including liveness and round-tripping.
 
 ## Configuration reference
 
@@ -429,9 +483,10 @@ src/
   AgentRegistry.Infrastructure/ EF Core (PostgreSQL), Redis, SQL API key service
   AgentRegistry.Api/            ASP.NET Core 10 minimal API, auth, Scalar
     Protocols/
-      A2A/                      A2A v1.0 RC agent card adapter
+      A2A/                      A2A v1.0 RC agent card adapter (HTTP)
       MCP/                      MCP 2025-11-25 server card adapter (Streamable HTTP)
       ACP/                      ACP 0.2.0 agent manifest adapter
+      QueuedA2A/                A2A over async message brokers (RabbitMQ, Azure Service Bus)
 tests/
   AgentRegistry.Domain.Tests/       Domain unit tests
   AgentRegistry.Application.Tests/  Service tests using Rocks source-gen mocks
@@ -440,6 +495,7 @@ tests/
       A2A/                          A2A endpoint tests
       MCP/                          MCP endpoint tests
       ACP/                          ACP endpoint tests
+      QueuedA2A/                    Queued A2A endpoint tests
 k8s/
   redis.yaml                    Redis StatefulSet + Service
   agentregistry/
