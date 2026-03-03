@@ -81,7 +81,8 @@ builder.Services
     });
 
 // ── Services ───────────────────────────────────────────────────────────────────
-builder.Services.AddInfrastructure(pgConn, redisConn);
+builder.Services.AddInfrastructure(pgConn, redisConn,
+    cfg => builder.Configuration.GetSection("AgentSeeds").Bind(cfg));
 builder.Services.AddScoped<AgentService>();
 
 // MCP server — exposes registry discovery as MCP tools at POST/GET /mcp

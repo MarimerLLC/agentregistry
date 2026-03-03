@@ -16,7 +16,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
         string postgresConnectionString,
-        string redisConnectionString)
+        string redisConnectionString,
+        Action<AgentSeedConfig>? configureSeeds = null)
     {
         services.AddDbContext<AgentRegistryDbContext>(options =>
             options.UseNpgsql(postgresConnectionString));
@@ -31,6 +32,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IApiKeyService, SqlApiKeyService>();
 
         services.AddHostedService<EphemeralReseedService>();
+
+        services.Configure<AgentSeedConfig>(configureSeeds ?? (_ => { }));
+        services.AddHostedService<AgentSeedService>();
 
         return services;
     }
