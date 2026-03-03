@@ -4,6 +4,7 @@ using MarimerLLC.AgentRegistry.Api.Auth;
 using MarimerLLC.AgentRegistry.Api.Protocols.A2A;
 using MarimerLLC.AgentRegistry.Api.Protocols.ACP;
 using MarimerLLC.AgentRegistry.Api.Protocols.MCP;
+using MarimerLLC.AgentRegistry.Api.Protocols.QueuedA2A;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using MarimerLLC.AgentRegistry.Application.Agents;
@@ -162,6 +163,7 @@ app.MapApiKeyEndpoints();
 app.MapA2AEndpoints();
 app.MapMcpEndpoints();
 app.MapAcpEndpoints();
+app.MapQueuedA2AEndpoints();
 
 if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
     await app.Services.MigrateAsync();
