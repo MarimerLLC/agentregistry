@@ -12,7 +12,7 @@ AgentRegistry is the connective tissue. An agent registers itself when it starts
 
 - **Protocol-agnostic** — agents declare their protocol (A2A, MCP, ACP, or custom) per endpoint. The registry stores and filters by protocol but doesn't speak any of them.
 - **Transport-agnostic** — HTTP endpoints and queue-based endpoints (AMQP, Azure Service Bus) are first-class. A queue-backed agent doesn't need to be running when discovered; the queue address is the endpoint.
-- **Ephemeral-native** — two liveness models coexist. *Ephemeral* agents (Azure Functions, KEDA-scaled workers) register with a TTL and renew it on each invocation. *Persistent* agents (long-lived pods, services) send periodic heartbeats. Both are stored uniformly in Redis as TTL keys.
+- **Ephemeral-native** — two liveness models coexist. *Ephemeral* agents (Azure Functions, KEDA-scaled workers) register with a TTL and renew it on each invocation. *Persistent* agents (long-lived pods, services) send periodic heartbeats. Both are stored uniformly in Redis as TTL keys. On registry restart, ephemeral endpoints are automatically reseeded from Postgres so scaled-to-zero agents remain discoverable without re-registering.
 - **Discovery is public; management is authenticated** — `GET /discover/agents` requires no credentials. Registration, heartbeating, and key management require an API key or JWT.
 
 ## Architecture
@@ -316,6 +316,42 @@ The agent calls `POST /agents/{id}/endpoints/{eid}/heartbeat` every `heartbeatIn
 
 Both models are stored uniformly in Redis as TTL keys. Discovery queries SQL and filters for live endpoints in a single batched Redis call.
 
+## Registry restart recovery
+
+Redis is ephemeral — liveness keys are lost when the registry restarts. Two complementary hosted services restore liveness automatically on startup so agents do not need to re-register.
+
+**`EphemeralReseedService`** (always on) — at startup, queries Postgres for every ephemeral endpoint whose `last_alive_at` timestamp is within the past 48 hours and reseeds those endpoints into Redis. This covers agents that self-registered and have been calling `/renew` normally. An agent that was scaled to zero when the registry restarted will still be discoverable as soon as the registry comes back up.
+
+**`AgentSeedService`** (config-driven) — for well-known or system agents that can never self-register after a scale-to-zero event, you can declare them in configuration. Each configured agent is created in Postgres if it does not exist, and its ephemeral endpoints are reseeded on every registry startup — unconditionally, regardless of the 48-hour window.
+
+```json
+"AgentSeeds": {
+  "Agents": [
+    {
+      "Name": "invoice-processor",
+      "OwnerId": "system",
+      "Description": "Always-available invoice processing agent",
+      "Labels": { "team": "finance" },
+      "Capabilities": [
+        { "Name": "process-invoice", "Description": "Processes invoices", "Tags": ["finance"] }
+      ],
+      "Endpoints": [
+        {
+          "Name": "primary",
+          "Transport": "Http",
+          "Protocol": "A2A",
+          "Address": "https://invoice-processor.internal/",
+          "LivenessModel": "Ephemeral",
+          "TtlSeconds": 300
+        }
+      ]
+    }
+  ]
+}
+```
+
+The two services are non-conflicting — if a config-defined agent also self-registers and calls `/renew`, both services simply call `SetAliveAsync` for the same Redis key, which is idempotent.
+
 ## Queue-backed agents
 
 Agents using AMQP or Azure Service Bus don't need to be running when discovered. The registry stores the queue address as the endpoint:
@@ -344,6 +380,7 @@ A KEDA-scaled worker registers on startup, processes jobs, and the TTL expires n
 | `Jwt:Authority` | OIDC authority for JWT Bearer validation | Optional |
 | `Jwt:Audience` | Expected JWT audience | `agentregistry` |
 | `Otel:Endpoint` | OTLP gRPC endpoint for traces and metrics | Optional |
+| `AgentSeeds:Agents` | List of agents to create and reseed on every startup (see [Registry restart recovery](#registry-restart-recovery)) | `[]` |
 
 ## Kubernetes deployment
 
