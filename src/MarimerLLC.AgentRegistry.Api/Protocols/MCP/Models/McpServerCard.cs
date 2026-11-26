@@ -3,28 +3,211 @@ using System.Text.Json.Serialization;
 
 namespace MarimerLLC.AgentRegistry.Api.Protocols.MCP.Models;
 
-/// <summary>
-/// Registry representation of a registered MCP server.
-/// Follows the proposed /.well-known/mcp.json server card format (spec 2025-11-25).
-/// </summary>
-public record McpServerCard
+/// <summary>Constants for MCP Server Cards (SEP-2127, <c>io.modelcontextprotocol/server-card</c>).</summary>
+public static class ServerCardConstants
 {
-    [JsonPropertyName("mcpVersion")]
-    public required string McpVersion { get; init; }
+    /// <summary>The only <c>$schema</c> value a v1 Server Card may carry.</summary>
+    public const string SchemaUrl = "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json";
 
-    [JsonPropertyName("serverInfo")]
-    public required McpServerInfo ServerInfo { get; init; }
+    /// <summary>Media type for a Server Card document.</summary>
+    public const string MediaType = "application/mcp-server-card+json";
 
-    [JsonPropertyName("endpoints")]
-    public required McpEndpointMap Endpoints { get; init; }
+    /// <summary>Media type for an AI Catalog document.</summary>
+    public const string AiCatalogMediaType = "application/ai-catalog+json";
 
-    [JsonPropertyName("capabilities")]
-    public required McpCapabilities Capabilities { get; init; }
+    /// <summary>
+    /// <c>_meta</c> key holding registry-specific data (registry ID, liveness, and the
+    /// tool/resource/prompt descriptors that drive capability search).
+    /// </summary>
+    public const string RegistryMetaKey = "llc.marimer/agentregistry";
 
-    /// <summary>Registry-assigned ID for this server.</summary>
+    /// <summary>Remote transport type for Streamable HTTP.</summary>
+    public const string StreamableHttp = "streamable-http";
+
+    /// <summary>Remote transport type for the deprecated HTTP+SSE transport (not supported by the registry).</summary>
+    public const string Sse = "sse";
+
+    /// <summary>Pattern for <c>name</c>: reverse-DNS namespace, one slash, server name.</summary>
+    public const string NamePattern = "^[a-zA-Z0-9.-]+/[a-zA-Z0-9._-]+$";
+}
+
+/// <summary>
+/// MCP Server Card (SEP-2127): a static document describing a remote MCP server's identity
+/// and how to connect to it. Tools, resources and prompts are deliberately not part of the
+/// card; the registry carries them under <c>_meta["llc.marimer/agentregistry"]</c>.
+/// </summary>
+/// <remarks>
+/// Required members default to empty strings rather than being C# <c>required</c>, so a
+/// request body with a missing member reaches validation and gets a 400 ProblemDetails.
+/// </remarks>
+public record ServerCard
+{
+    [JsonPropertyName("$schema")]
+    public string Schema { get; init; } = "";
+
+    /// <summary>Reverse-DNS server name, e.g. <c>com.example/weather</c>.</summary>
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    [JsonPropertyName("version")]
+    public string Version { get; init; } = "";
+
+    /// <summary>1–100 characters.</summary>
+    [JsonPropertyName("description")]
+    public string Description { get; init; } = "";
+
+    [JsonPropertyName("title")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Title { get; init; }
+
+    [JsonPropertyName("websiteUrl")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? WebsiteUrl { get; init; }
+
+    [JsonPropertyName("repository")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ServerCardRepository? Repository { get; init; }
+
+    [JsonPropertyName("icons")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ServerCardIcon>? Icons { get; init; }
+
+    [JsonPropertyName("remotes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ServerCardRemote>? Remotes { get; init; }
+
+    [JsonPropertyName("_meta")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonObject? Meta { get; init; }
+}
+
+/// <summary>Connection metadata for one HTTP endpoint of an MCP server.</summary>
+public record ServerCardRemote
+{
+    /// <summary><c>streamable-http</c> or <c>sse</c>.</summary>
+    [JsonPropertyName("type")]
+    public string Type { get; init; } = "";
+
+    /// <summary>Endpoint URL, or a template starting with a <c>{variable}</c>.</summary>
+    [JsonPropertyName("url")]
+    public string Url { get; init; } = "";
+
+    [JsonPropertyName("headers")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ServerCardKeyValueInput>? Headers { get; init; }
+
+    [JsonPropertyName("variables")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, ServerCardInput>? Variables { get; init; }
+
+    [JsonPropertyName("supportedProtocolVersions")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? SupportedProtocolVersions { get; init; }
+
+    [JsonPropertyName("extensionsInfo")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, JsonObject>? ExtensionsInfo { get; init; }
+}
+
+/// <summary>A user-supplied or pre-set value used for remote URL variables and header values.</summary>
+public record ServerCardInput
+{
+    [JsonPropertyName("description")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("isRequired")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IsRequired { get; init; }
+
+    [JsonPropertyName("isSecret")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IsSecret { get; init; }
+
+    /// <summary><c>string</c>, <c>number</c>, <c>boolean</c> or <c>filepath</c>.</summary>
+    [JsonPropertyName("format")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Format { get; init; }
+
+    [JsonPropertyName("default")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Default { get; init; }
+
+    [JsonPropertyName("placeholder")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Placeholder { get; init; }
+
+    [JsonPropertyName("value")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Value { get; init; }
+
+    [JsonPropertyName("choices")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? Choices { get; init; }
+}
+
+/// <summary>A named input, used for HTTP headers.</summary>
+public record ServerCardKeyValueInput : ServerCardInput
+{
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    [JsonPropertyName("variables")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, ServerCardInput>? Variables { get; init; }
+}
+
+public record ServerCardRepository
+{
+    [JsonPropertyName("url")]
+    public string Url { get; init; } = "";
+
+    /// <summary>Hosting service identifier, e.g. <c>github</c>.</summary>
+    [JsonPropertyName("source")]
+    public string Source { get; init; } = "";
+
+    [JsonPropertyName("subfolder")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Subfolder { get; init; }
+
     [JsonPropertyName("id")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Id { get; init; }
+}
+
+public record ServerCardIcon
+{
+    [JsonPropertyName("src")]
+    public string Src { get; init; } = "";
+
+    [JsonPropertyName("mimeType")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? MimeType { get; init; }
+
+    [JsonPropertyName("sizes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? Sizes { get; init; }
+
+    /// <summary><c>light</c> or <c>dark</c>.</summary>
+    [JsonPropertyName("theme")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Theme { get; init; }
+}
+
+/// <summary>
+/// Registry data carried in a Server Card under <c>_meta["llc.marimer/agentregistry"]</c>.
+/// <see cref="Id"/> and <see cref="IsLive"/> are set by the registry on the way out and
+/// ignored on registration.
+/// </summary>
+public record RegistryServerMeta
+{
+    [JsonPropertyName("id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Id { get; init; }
+
+    [JsonPropertyName("isLive")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IsLive { get; init; }
 
     [JsonPropertyName("instructions")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -42,78 +225,39 @@ public record McpServerCard
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<McpPromptDescriptor>? Prompts { get; init; }
 
+    /// <summary>
+    /// Authentication details as the server published them. Carried over from registrations made
+    /// before Server Cards, whose cards had a top-level <c>authentication</c> object.
+    /// </summary>
     [JsonPropertyName("authentication")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public JsonObject? Authentication { get; init; }
-
-    [JsonPropertyName("isLive")]
-    public bool IsLive { get; init; }
 }
 
-public record McpServerInfo
+/// <summary>AI Catalog document served at <c>/.well-known/ai-catalog.json</c>.</summary>
+public record AiCatalog
 {
-    [JsonPropertyName("name")]
-    public required string Name { get; init; }
+    [JsonPropertyName("specVersion")]
+    public string SpecVersion { get; init; } = "1.0";
 
-    [JsonPropertyName("version")]
-    public required string Version { get; init; }
+    [JsonPropertyName("entries")]
+    public IReadOnlyList<AiCatalogEntry> Entries { get; init; } = [];
 }
 
-public record McpEndpointMap
+public record AiCatalogEntry
 {
-    /// <summary>Streamable HTTP endpoint (current transport — spec 2025-03-26+).</summary>
-    [JsonPropertyName("streamableHttp")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? StreamableHttp { get; init; }
+    /// <summary>Domain-anchored identifier: <c>urn:air:{publisher}:{namespace}:{name}</c>.</summary>
+    [JsonPropertyName("identifier")]
+    public required string Identifier { get; init; }
+
+    [JsonPropertyName("type")]
+    public required string Type { get; init; }
+
+    [JsonPropertyName("url")]
+    public required string Url { get; init; }
 }
 
-public record McpCapabilities
-{
-    [JsonPropertyName("tools")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public McpToolsCapability? Tools { get; init; }
-
-    [JsonPropertyName("resources")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public McpResourcesCapability? Resources { get; init; }
-
-    [JsonPropertyName("prompts")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public McpPromptsCapability? Prompts { get; init; }
-
-    [JsonPropertyName("logging")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public JsonObject? Logging { get; init; }
-
-    [JsonPropertyName("completions")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public JsonObject? Completions { get; init; }
-
-    [JsonPropertyName("experimental")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public JsonObject? Experimental { get; init; }
-}
-
-public record McpToolsCapability
-{
-    [JsonPropertyName("listChanged")]
-    public bool ListChanged { get; init; }
-}
-
-public record McpResourcesCapability
-{
-    [JsonPropertyName("subscribe")]
-    public bool Subscribe { get; init; }
-
-    [JsonPropertyName("listChanged")]
-    public bool ListChanged { get; init; }
-}
-
-public record McpPromptsCapability
-{
-    [JsonPropertyName("listChanged")]
-    public bool ListChanged { get; init; }
-}
+// ── Descriptors carried in the registry _meta block ──────────────────────────────
 
 public record McpToolDescriptor
 {
@@ -190,6 +334,3 @@ public record McpPromptArgument
     [JsonPropertyName("required")]
     public bool Required { get; init; }
 }
-
-/// <summary>Request body for MCP-native server registration.</summary>
-public record RegisterViaMcpRequest(McpServerCard ServerCard);

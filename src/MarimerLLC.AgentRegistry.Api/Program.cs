@@ -1,3 +1,4 @@
+using MarimerLLC.AgentRegistry.Api;
 using MarimerLLC.AgentRegistry.Api.ApiKeys;
 using MarimerLLC.AgentRegistry.Api.Agents;
 using MarimerLLC.AgentRegistry.Api.Auth;
@@ -49,7 +50,7 @@ var otelEndpoint = builder.Configuration["Otel:Endpoint"];
 builder.Services
     .AddOpenTelemetry()
     .ConfigureResource(r => r
-        .AddService("AgentRegistry", serviceVersion: "1.0.0")
+        .AddService("AgentRegistry", serviceVersion: RegistryIdentity.Version)
         .AddTelemetrySdk())
     .WithTracing(tracing =>
     {
@@ -86,12 +87,20 @@ builder.Services.AddInfrastructure(pgConn, redisConn,
     cfg => builder.Configuration.GetSection("AgentSeeds").Bind(cfg));
 builder.Services.AddScoped<AgentService>();
 
-// MCP server — exposes registry discovery as MCP tools at POST/GET /mcp
+// MCP server — exposes registry discovery as read-only MCP tools at POST /mcp.
+// Stateless: serves 2026-07-28 clients natively and 2025-11-25 clients via initialize, with no sessions.
 builder.Services.AddMcpServer(opts =>
     {
-        opts.ServerInfo = new Implementation { Name = "AgentRegistry", Version = "1.0.0" };
+        opts.ServerInfo = new Implementation
+        {
+            Name = RegistryIdentity.Name,
+            Title = RegistryIdentity.Title,
+            Version = RegistryIdentity.Version,
+            Description = RegistryIdentity.Description,
+        };
+        opts.ServerInstructions = RegistryIdentity.McpInstructions;
     })
-    .WithHttpTransport()
+    .WithHttpTransport(o => o.Stateless = true)
     .WithTools<AgentRegistryMcpTools>();
 
 builder.Services.AddAuthentication(options =>
@@ -121,7 +130,7 @@ builder.Services.AddOpenApi(options =>
     {
         document.Info.Title = "Agent Registry API";
         document.Info.Description = "Protocol-agnostic registry for A2A, MCP, and ACP agents with multi-transport support.";
-        document.Info.Version = "v1";
+        document.Info.Version = RegistryIdentity.Version;
         return Task.CompletedTask;
     });
 });
@@ -154,7 +163,7 @@ app.MapHealthChecks("/readyz", new HealthCheckOptions
     Predicate = check => check.Tags.Contains("ready")
 });
 
-// MCP Streamable HTTP endpoint — POST/GET /mcp (spec 2025-11-25)
+// MCP Streamable HTTP endpoint — POST /mcp (spec 2026-07-28, down-level 2025-11-25)
 app.MapMcp("/mcp");
 
 app.MapAgentEndpoints();

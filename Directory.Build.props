@@ -5,4 +5,21 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
+
+  <!--
+    The registry's version — the single place to change it. Semantic Versioning 2.0.0:
+      MAJOR  breaking change to the REST API, card shapes or registration bodies
+      MINOR  backward-compatible feature
+      PATCH  backward-compatible fix
+    Pre-releases add a suffix at build time instead of editing this file:
+      dotnet build -p:VersionSuffix=preview.1    (→ 2.0.0-preview.1)
+      Docker: build arg VERSION_SUFFIX=rc.1      (→ 2.0.0-rc.1)
+    The SDK derives Version, AssemblyVersion and FileVersion from these, and appends
+    +<commit> to InformationalVersion, which is what the registry reports (MCP serverInfo,
+    Server Card, A2A card, OpenAPI, OpenTelemetry). Release tags are v<Version>, e.g. v2.0.0.
+    The clients under clients/ are versioned separately.
+  -->
+  <PropertyGroup>
+    <VersionPrefix>2.0.0</VersionPrefix>
+  </PropertyGroup>
 </Project>

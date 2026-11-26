@@ -11,14 +11,14 @@ namespace MarimerLLC.AgentRegistry.Api.Protocols.MCP;
 /// <summary>
 /// MCP tools that expose the registry's discovery capabilities to MCP clients.
 /// All tools are read-only — discovery is public in AgentRegistry.
-/// Registered at POST/GET /mcp (Streamable HTTP transport, spec 2025-11-25).
+/// Registered at POST /mcp (stateless Streamable HTTP, spec 2026-07-28 with 2025-11-25 down-level).
 /// </summary>
 [McpServerToolType]
 public sealed class AgentRegistryMcpTools(AgentService agentService)
 {
     // ── Discovery ─────────────────────────────────────────────────────────────
 
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description("Discover registered AI agents. Returns live agents matching the given filters. " +
                  "Agents may speak A2A, MCP, ACP, or other protocols over HTTP or message queues.")]
     public async Task<string> DiscoverAgents(
@@ -82,7 +82,7 @@ public sealed class AgentRegistryMcpTools(AgentService agentService)
         return JsonSerializer.Serialize(summary, JsonSerializerOptions.Web);
     }
 
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description("Get full details for a specific registered agent by its registry ID (UUID).")]
     public async Task<string> GetAgent(
         [Description("The agent's registry ID (UUID format).")] string id,
@@ -130,10 +130,10 @@ public sealed class AgentRegistryMcpTools(AgentService agentService)
 
     // ── Protocol card retrieval ───────────────────────────────────────────────
 
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description("Get the A2A agent card for a registered agent. " +
                  "Returns null if the agent has no A2A endpoints. " +
-                 "The card follows the A2A v1.0 RC spec.")]
+                 "The card follows A2A 1.0.")]
     public async Task<string> GetA2ACard(
         [Description("The agent's registry ID (UUID format).")] string id,
         CancellationToken ct = default)
@@ -152,10 +152,10 @@ public sealed class AgentRegistryMcpTools(AgentService agentService)
         return JsonSerializer.Serialize(card, JsonSerializerOptions.Web);
     }
 
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description("Get the MCP server card for a registered MCP server. " +
                  "Returns null if the agent has no MCP (HTTP) endpoints. " +
-                 "The card follows the MCP spec 2025-11-25.")]
+                 "The card is an MCP Server Card (SEP-2127); registry data and tool descriptors are under _meta[\"llc.marimer/agentregistry\"].")]
     public async Task<string> GetMcpServerCard(
         [Description("The agent's registry ID (UUID format).")] string id,
         CancellationToken ct = default)
@@ -174,7 +174,7 @@ public sealed class AgentRegistryMcpTools(AgentService agentService)
         return JsonSerializer.Serialize(card, JsonSerializerOptions.Web);
     }
 
-    [McpServerTool]
+    [McpServerTool(ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description("Get the ACP agent manifest for a registered ACP agent. " +
                  "Returns null if the agent has no ACP endpoints. " +
                  "The manifest follows the ACP spec 0.2.0 (IBM/BeeAI).")]

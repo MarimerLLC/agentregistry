@@ -14,7 +14,7 @@ public static class A2AAgentCardMapper
     // ── Domain → AgentCard ────────────────────────────────────────────────────
 
     /// <summary>
-    /// Build an A2A AgentCard from a registry agent. Returns null if the agent
+    /// Build an A2A 1.0 AgentCard from a registry agent. Returns null if the agent
     /// has no A2A endpoints (live or otherwise — callers filter as needed).
     /// </summary>
     public static AgentCard? ToAgentCard(AgentWithLiveness agentWithLiveness, string registryBaseUrl)
@@ -28,7 +28,7 @@ public static class A2AAgentCardMapper
         if (a2aEndpoints.Count == 0) return null;
 
         // Read any A2A-specific metadata stored on the first A2A endpoint.
-        // When registered via POST /a2a/agents, the full original card is stored here.
+        // When registered via POST /a2a/agents, the A2A-only card fields are stored here.
         StoredA2AMetadata? stored = null;
         var primaryEndpoint = a2aEndpoints.FirstOrDefault(e =>
             agentWithLiveness.LiveEndpointIds.Contains(e.Id)) ?? a2aEndpoints[0];
@@ -44,31 +44,58 @@ public static class A2AAgentCardMapper
             catch (JsonException) { /* malformed metadata — build from domain only */ }
         }
 
-        var skills = agent.Capabilities.Select(c => new AgentSkill
+        // Stored skills queued per name, so capabilities that share a name each take the next
+        // stored skill in order rather than all taking the first.
+        var storedSkills = (stored?.Skills ?? [])
+            .GroupBy(s => s.Name, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => new Queue<AgentSkill>(g), StringComparer.Ordinal);
+
+        var skills = agent.Capabilities.Select(c =>
         {
-            Id = c.Id.ToString(),
-            Name = c.Name,
-            Description = c.Description ?? c.Name,
-            Tags = c.Tags.ToList(),
+            // Carry the A2A skill id and A2A-only fields (examples, modes, security) over from the stored card.
+            AgentSkill? original = null;
+            if (storedSkills.TryGetValue(c.Name, out var queue)) queue.TryDequeue(out original);
+            return new AgentSkill
+            {
+                Id = original?.Id ?? c.Id.ToString(),
+                Name = c.Name,
+                Description = c.Description ?? c.Name,
+                Tags = c.Tags.ToList(),
+                Examples = original?.Examples,
+                InputModes = original?.InputModes,
+                OutputModes = original?.OutputModes,
+                SecurityRequirements = original?.SecurityRequirements,
+            };
         }).ToList();
 
-        // Merge any preserved A2A skills not already covered by our capabilities.
-        if (stored?.Skills is { Count: > 0 })
-        {
-            var existingIds = skills.Select(s => s.Id).ToHashSet();
-            foreach (var s in stored.Skills.Where(s => !existingIds.Contains(s.Id)))
-                skills.Add(s);
-        }
+        // Merge any preserved A2A skills not matched to one of our capabilities.
+        skills.AddRange(storedSkills.Values.SelectMany(q => q));
 
-        var interfaces = a2aEndpoints.Select(e => new AgentInterface
+        var interfaces = a2aEndpoints.Select(e =>
         {
-            Url = BuildEndpointUrl(e, registryBaseUrl),
-            Transport = ToA2ATransport(e.Transport),
+            var url = BuildEndpointUrl(e, registryBaseUrl);
+            // Several interfaces can share a URL (e.g. JSONRPC and HTTP+JSON at one base URL), so
+            // match on URL and binding — FromAgentCard names each endpoint after its binding.
+            // Fall back to URL alone for endpoints that were not named that way.
+            var match = e.Transport == TransportType.Http
+                ? stored?.Interfaces?.FirstOrDefault(i =>
+                      string.Equals(i.Url, e.Address, StringComparison.Ordinal) &&
+                      string.Equals(i.ProtocolBinding, e.Name, StringComparison.Ordinal))
+                  ?? stored?.Interfaces?.FirstOrDefault(i =>
+                      string.Equals(i.Url, e.Address, StringComparison.Ordinal))
+                : null;
+
+            return new AgentInterface
+            {
+                Url = url,
+                ProtocolBinding = match?.ProtocolBinding ?? DefaultBinding(e.Transport),
+                ProtocolVersion = match?.ProtocolVersion ?? A2ABindings.DefaultProtocolVersion,
+                Tenant = match?.Tenant,
+            };
         }).ToList();
 
         return new AgentCard
         {
-            Id = agent.Id.ToString(),
             Name = agent.Name,
             Description = agent.Description ?? agent.Name,
             Version = stored?.Version ?? "1.0",
@@ -77,11 +104,15 @@ public static class A2AAgentCardMapper
             SupportedInterfaces = interfaces,
             DefaultInputModes = stored?.DefaultInputModes ?? DefaultModes,
             DefaultOutputModes = stored?.DefaultOutputModes ?? DefaultModes,
-            Provider = stored?.Provider,
+            // provider.url is required in A2A 1.0; rows stored without one drop the provider.
+            Provider = stored?.Provider is { Organization: { Length: > 0 } org, Url: { Length: > 0 } providerUrl }
+                ? new AgentProvider { Organization = org, Url = providerUrl }
+                : null,
             DocumentationUrl = stored?.DocumentationUrl,
             IconUrl = stored?.IconUrl,
             SecuritySchemes = stored?.SecuritySchemes,
             SecurityRequirements = stored?.SecurityRequirements,
+            // Signatures are deliberately not re-served: this card is rebuilt, so they would not verify.
         };
     }
 
@@ -94,8 +125,8 @@ public static class A2AAgentCardMapper
         IEnumerable<RegisterEndpointRequest> Endpoints);
 
     /// <summary>
-    /// Map an A2A AgentCard to the inputs needed for AgentService.RegisterAsync.
-    /// The full card is serialised into ProtocolMetadata so discovery can reconstruct it exactly.
+    /// Map an A2A 1.0 AgentCard to the inputs needed for AgentService.RegisterAsync.
+    /// A2A-only card fields are serialised into ProtocolMetadata so discovery can rebuild the card.
     /// </summary>
     public static MappedRegistration FromAgentCard(AgentCard card)
     {
@@ -109,18 +140,28 @@ public static class A2AAgentCardMapper
             Version = card.Version,
             Capabilities = card.Capabilities,
             Skills = card.Skills.ToList(),
+            Interfaces = card.SupportedInterfaces.Select(i => new StoredInterface
+            {
+                Url = i.Url,
+                ProtocolBinding = i.ProtocolBinding,
+                ProtocolVersion = i.ProtocolVersion,
+                Tenant = i.Tenant,
+            }).ToList(),
             DefaultInputModes = card.DefaultInputModes.ToList(),
             DefaultOutputModes = card.DefaultOutputModes.ToList(),
-            Provider = card.Provider,
+            Provider = card.Provider is null
+                ? null
+                : new StoredProvider { Organization = card.Provider.Organization, Url = card.Provider.Url },
             DocumentationUrl = card.DocumentationUrl,
             IconUrl = card.IconUrl,
             SecuritySchemes = card.SecuritySchemes,
             SecurityRequirements = card.SecurityRequirements?.ToList(),
+            Signatures = card.Signatures?.ToList(),
         }, JsonSerializerOptions.Web);
 
         var endpoints = card.SupportedInterfaces.Select(iface => new RegisterEndpointRequest(
-            Name: iface.Transport,
-            Transport: FromA2ATransport(iface.Transport),
+            Name: iface.ProtocolBinding,
+            Transport: FromA2ABinding(iface.ProtocolBinding),
             Protocol: ProtocolType.A2A,
             Address: iface.Url,
             LivenessModel: LivenessModel.Persistent,
@@ -137,12 +178,12 @@ public static class A2AAgentCardMapper
 
     // ── Registry self-card ────────────────────────────────────────────────────
 
-    /// <summary>The registry's own A2A agent card, served at /.well-known/agent.json.</summary>
+    /// <summary>The registry's own A2A agent card, served at /.well-known/agent-card.json.</summary>
     public static AgentCard RegistrySelfCard(string baseUrl) => new()
     {
         Name = "AgentRegistry",
         Description = "Protocol-agnostic registry for AI agents. Supports A2A, MCP, and ACP over HTTP, AMQP, and Azure Service Bus.",
-        Version = "1.0.0",
+        Version = RegistryIdentity.Version,
         Capabilities = new AgentCapabilities { Streaming = false, PushNotifications = false },
         Skills =
         [
@@ -163,10 +204,20 @@ public static class A2AAgentCardMapper
         ],
         SupportedInterfaces =
         [
-            new AgentInterface { Url = $"{baseUrl}/a2a/agents", Transport = "JSONRPC" },
+            new AgentInterface
+            {
+                Url = $"{baseUrl}/a2a/agents",
+                ProtocolBinding = A2ABindings.JsonRpc,
+                ProtocolVersion = A2ABindings.DefaultProtocolVersion,
+            },
         ],
         DefaultInputModes = ["application/json"],
         DefaultOutputModes = ["application/json"],
+        Provider = new AgentProvider
+        {
+            Organization = RegistryIdentity.ProviderOrganization,
+            Url = RegistryIdentity.ProviderUrl,
+        },
         DocumentationUrl = $"{baseUrl}/scalar/v1",
     };
 
@@ -177,19 +228,22 @@ public static class A2AAgentCardMapper
             ? endpoint.Address          // absolute URL provided by the agent
             : $"{registryBaseUrl}/a2a/queue/{endpoint.Id}"; // synthetic URL for queue endpoints
 
-    private static string ToA2ATransport(TransportType transport) => transport switch
+    /// <summary>
+    /// Binding for an endpoint with no recorded interface (generic-API registrations, rows
+    /// stored before A2A 1.0, queue endpoints). Queue bindings are registry-specific names.
+    /// </summary>
+    private static string DefaultBinding(TransportType transport) => transport switch
     {
-        TransportType.Http => "JSONRPC",
-        TransportType.Amqp => "AMQP",
-        TransportType.AzureServiceBus => "AzureServiceBus",
-        _ => "JSONRPC",
+        TransportType.Amqp => A2ABindings.Amqp,
+        TransportType.AzureServiceBus => A2ABindings.AzureServiceBus,
+        _ => A2ABindings.JsonRpc,
     };
 
-    private static TransportType FromA2ATransport(string transport) => transport switch
+    private static TransportType FromA2ABinding(string binding) => binding switch
     {
-        "JSONRPC" or "HTTP" or "GRPC" => TransportType.Http,
-        "AMQP" => TransportType.Amqp,
-        "AzureServiceBus" => TransportType.AzureServiceBus,
+        A2ABindings.JsonRpc or A2ABindings.Grpc or A2ABindings.HttpJson => TransportType.Http,
+        A2ABindings.Amqp => TransportType.Amqp,
+        A2ABindings.AzureServiceBus => TransportType.AzureServiceBus,
         _ => TransportType.Http,
     };
 
@@ -198,18 +252,37 @@ public static class A2AAgentCardMapper
     /// <summary>
     /// A2A-specific fields that have no equivalent in the generic domain model.
     /// Serialised into Endpoint.ProtocolMetadata so cards round-trip correctly.
+    /// Members are optional so rows written before A2A 1.0 still deserialise.
     /// </summary>
     private record StoredA2AMetadata
     {
         public string Version { get; init; } = "1.0";
         public AgentCapabilities? Capabilities { get; init; }
         public List<AgentSkill>? Skills { get; init; }
+        public List<StoredInterface>? Interfaces { get; init; }
         public List<string>? DefaultInputModes { get; init; }
         public List<string>? DefaultOutputModes { get; init; }
-        public AgentProvider? Provider { get; init; }
+        public StoredProvider? Provider { get; init; }
         public string? DocumentationUrl { get; init; }
         public string? IconUrl { get; init; }
         public JsonObject? SecuritySchemes { get; init; }
         public List<JsonObject>? SecurityRequirements { get; init; }
+
+        /// <summary>Kept for the record; never re-served (see <see cref="AgentCard.Signatures"/>).</summary>
+        public List<AgentCardSignature>? Signatures { get; init; }
+    }
+
+    private record StoredInterface
+    {
+        public string? Url { get; init; }
+        public string? ProtocolBinding { get; init; }
+        public string? ProtocolVersion { get; init; }
+        public string? Tenant { get; init; }
+    }
+
+    private record StoredProvider
+    {
+        public string? Organization { get; init; }
+        public string? Url { get; init; }
     }
 }

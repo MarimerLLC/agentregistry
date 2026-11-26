@@ -183,6 +183,29 @@ Migrations live in `src/AgentRegistry.Infrastructure/Migrations/`. Always review
 5. Describe what your PR changes and why in the PR description. Reference any related issues.
 6. A maintainer will review within a reasonable time. Be prepared for feedback and iteration.
 
+## Versioning
+
+The registry follows [Semantic Versioning 2.0.0](https://semver.org/). The version is set in one place: `VersionPrefix` in the root [`Directory.Build.props`](Directory.Build.props).
+
+| Bump | When |
+|---|---|
+| **MAJOR** | A breaking change for clients: REST routes or bodies, protocol card shapes (A2A, MCP, ACP, Queued A2A), registration request shapes, or auth behaviour |
+| **MINOR** | A backward-compatible feature, such as a new endpoint, a new optional field, or a new protocol adapter |
+| **PATCH** | A backward-compatible bug fix |
+
+Bump `VersionPrefix` in the PR that makes the change, using the largest bump any change since the last release needs. Don't edit it for pre-releases. Add a suffix at build time instead:
+
+```bash
+dotnet build -p:VersionSuffix=preview.1                         # 2.1.0-preview.1
+docker build --build-arg VERSION_SUFFIX=rc.1 -t agentregistry .  # 2.1.0-rc.1
+```
+
+The SDK derives `Version`, `AssemblyVersion` and `FileVersion` from these, and appends `+<commit>` to the informational version when building from a git checkout. That informational version is what the registry reports everywhere: MCP `serverInfo`, its MCP Server Card, its A2A agent card, the OpenAPI document, and OpenTelemetry `service.version`. `VersionTests` checks that the version is valid SemVer and that all of these agree.
+
+Tag releases `v<version>` (for example `v2.0.0`) on the merge commit.
+
+The .NET and Python clients under `clients/` are versioned independently, because their wire API changes on a different cadence.
+
 ## Commit style
 
 Use short, imperative present-tense commit messages:
