@@ -19,8 +19,12 @@ public static class ServiceCollectionExtensions
         string redisConnectionString,
         Action<AgentSeedConfig>? configureSeeds = null)
     {
+        // Agent labels are a Dictionary<string, string> mapped to a jsonb column. Npgsql 8+ only
+        // serialises arbitrary CLR types to JSON after an explicit EnableDynamicJson opt-in;
+        // without it every agent insert fails with InvalidCastException.
         services.AddDbContext<AgentRegistryDbContext>(options =>
-            options.UseNpgsql(postgresConnectionString));
+            options.UseNpgsql(postgresConnectionString,
+                npgsql => npgsql.ConfigureDataSource(ds => ds.EnableDynamicJson())));
 
         // Lazy singleton — connection is made on first resolve, not at registration time.
         // This allows the test host to replace IConnectionMultiplexer before it is ever used.
