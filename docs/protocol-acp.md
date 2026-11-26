@@ -118,14 +118,16 @@ POST /agents
   ],
   "endpoints": [{
     "name": "acp-http",
-    "transport": "Http",
-    "protocol": "ACP",
+    "transport": 0,
+    "protocol": 3,
     "address": "https://summarizer.example.com",
-    "livenessModel": "Persistent",
+    "livenessModel": 1,
     "heartbeatIntervalSeconds": 30
   }]
 }
 ```
+
+The generic API takes enum fields as numbers: `transport` `0` (Http), `protocol` `3` (ACP), `livenessModel` `1` (Persistent). See [Enum values in request bodies](../README.md#enum-values-in-request-bodies).
 
 The manifest at `GET /acp/agents/{id}` is synthesised from domain data. Content types default to `["text/plain", "application/json"]` and no JSON schemas are included.
 

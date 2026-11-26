@@ -206,7 +206,7 @@ The response contains the raw key — **copy it now, it is never shown again**:
 {
   "id": "...",
   "ownerId": "platform-team",
-  "scope": "Admin",
+  "scope": 1,
   "keyPrefix": "ar_Abc123",
   "rawKey": "ar_Abc123DefGhi...",
   "createdAt": "..."
@@ -224,8 +224,10 @@ With your Admin key, issue scoped keys for agents and systems:
 curl -X POST http://localhost:5000/api-keys \
   -H "X-Api-Key: ar_Abc123DefGhi..." \
   -H "Content-Type: application/json" \
-  -d '{"description": "summarizer-agent", "scope": "Agent"}'
+  -d '{"description": "summarizer-agent", "scope": 0}'
 ```
+
+`scope` is a number: `0` for Agent (the default) and `1` for Admin. In responses, `scope` also comes back as a number (`1` above is Admin). See [Enum values in request bodies](#enum-values-in-request-bodies).
 
 ## Authorization
 
@@ -262,6 +264,24 @@ Discovery, the MCP server endpoint, and protocol card endpoints (`/discover/agen
 | `POST` | `/agents/{id}/endpoints/{eid}/heartbeat` | Agent or Admin (owner) | Persistent liveness reset |
 | `POST` | `/agents/{id}/endpoints/{eid}/renew` | Agent or Admin (owner) | Ephemeral TTL renewal |
 | `GET` | `/discover/agents` | Public | Discover live agents |
+
+### Enum values in request bodies
+
+JSON request bodies take enum fields as **numbers**. Names such as `"Http"` are rejected with 400.
+
+| Field | Values |
+|---|---|
+| `transport` | `0` Http, `1` Amqp, `2` AzureServiceBus |
+| `protocol` | `0` Unknown, `1` A2A, `2` MCP, `3` ACP |
+| `livenessModel` | `0` Ephemeral, `1` Persistent |
+| `scope` (API keys) | `0` Agent, `1` Admin |
+
+Three places use names instead:
+- Query strings take names in any case, e.g. `GET /discover/agents?protocol=mcp&transport=Http`.
+- Agent responses return endpoint `transport`, `protocol` and `livenessModel` as names.
+- Configuration (`AgentSeeds`) takes names.
+
+API key responses return `scope` as a number. The .NET and Python clients handle all of this for you.
 
 ### A2A protocol
 
@@ -317,22 +337,22 @@ Full interactive docs are available at `/scalar/v1` when the service is running.
 
 Agents choose their liveness model per endpoint at registration time.
 
-**Ephemeral** — suited to serverless / KEDA-scaled workloads that spin up per-job:
+**Ephemeral** (`"livenessModel": 0`) — suited to serverless / KEDA-scaled workloads that spin up per-job:
 
 ```json
 {
-  "livenessModel": "Ephemeral",
+  "livenessModel": 0,
   "ttlSeconds": 300
 }
 ```
 
 The registration expires after `ttlSeconds`. The agent calls `POST /agents/{id}/endpoints/{eid}/renew` to extend it. If the agent stops running, the registration expires automatically with no cleanup needed.
 
-**Persistent** — suited to long-lived pods or services:
+**Persistent** (`"livenessModel": 1`) — suited to long-lived pods or services:
 
 ```json
 {
-  "livenessModel": "Persistent",
+  "livenessModel": 1,
   "heartbeatIntervalSeconds": 30
 }
 ```
@@ -407,6 +427,8 @@ Use `POST /a2a/async/agents` with the full `queueEndpoint` connection details:
 
 Clients discover the agent via `GET /a2a/async/agents` and receive the full broker connection details needed to publish A2A task messages directly.
 
+A queued A2A registration always gets a `Persistent` endpoint with a 30-second heartbeat interval. The worker calls `POST /agents/{id}/endpoints/{eid}/heartbeat` while it runs. When it stops, the endpoint drops out of live queries after the 75-second grace period. For TTL-based (`Ephemeral`) liveness, use the generic registration below.
+
 ### Generic registration
 
 Use `POST /agents` with explicit `transport` and `protocol` fields. This works for any protocol/transport combination but returns the registry's internal model rather than a protocol-native card:
@@ -416,14 +438,16 @@ Use `POST /agents` with explicit `transport` and `protocol` fields. This works f
   "name": "async-processor",
   "endpoints": [{
     "name": "queue",
-    "transport": "AzureServiceBus",
-    "protocol": "A2A",
+    "transport": 2,
+    "protocol": 1,
     "address": "agents/summarizer/requests",
-    "livenessModel": "Ephemeral",
+    "livenessModel": 0,
     "ttlSeconds": 60
   }]
 }
 ```
+
+`transport` `2` is AzureServiceBus, `protocol` `1` is A2A, and `livenessModel` `0` is Ephemeral.
 
 In both cases, a KEDA-scaled worker registers on startup, processes jobs, and the TTL expires naturally when the scaling group idles. Consumers route work to the queue address — whether the worker is currently running or not is KEDA's concern. See [Queued A2A adapter design](docs/protocol-queued-a2a.md) for the full pattern including liveness and round-tripping.
 
