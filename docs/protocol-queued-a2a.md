@@ -193,22 +193,26 @@ POST /a2a/async/agents
 
 ### Keeping liveness alive (KEDA worker pattern)
 
-An ephemeral, KEDA-scaled worker registers on pod startup and renews on each task:
+`POST /a2a/async/agents` always creates a **`Persistent`** endpoint with a 30-second heartbeat interval. The card has no liveness fields, so `livenessModel` and `ttlSeconds` in the body are ignored. The worker keeps the endpoint live by heartbeating:
 
 ```bash
-# On pod startup — register with 5-minute TTL
+# On pod startup — register (the queued card body is shown above)
 curl -X POST https://registry.example.com/a2a/async/agents \
   -H "X-Api-Key: $REGISTRY_KEY" \
-  -d '{ "name": "ResearchAgent", ..., "livenessModel": "Ephemeral", "ttlSeconds": 300 }'
+  -H "Content-Type: application/json" \
+  -d @research-agent-card.json
 
-# Capture the endpoint ID from the response, then on each task invocation:
-curl -X POST https://registry.example.com/agents/$AGENT_ID/endpoints/$ENDPOINT_ID/renew \
+# The response card's "id" is the agent ID. Read the endpoint ID from the agent record:
+curl https://registry.example.com/agents/$AGENT_ID -H "X-Api-Key: $REGISTRY_KEY"
+
+# Heartbeat every 30 seconds while the pod runs:
+curl -X POST https://registry.example.com/agents/$AGENT_ID/endpoints/$ENDPOINT_ID/heartbeat \
   -H "X-Api-Key: $REGISTRY_KEY"
 ```
 
-When the pod scales to zero, the TTL expires and the agent is no longer returned in `liveOnly=true` queries. The queue address in the card remains valid — KEDA will scale a new pod when messages arrive.
+When the pod scales to zero, the heartbeats stop. After the grace period (2.5 × 30 s = 75 s) the agent is no longer returned in `liveOnly=true` queries. The queue address in the card remains valid — KEDA will scale a new pod when messages arrive.
 
-For persistent workers, use `heartbeatIntervalSeconds` instead and call `POST .../heartbeat` on schedule.
+`/renew` only applies to `Ephemeral` endpoints and returns 400 for a queued A2A endpoint. For TTL-based liveness that renews on each task, register through the generic `POST /agents` instead and call `/renew` per task. Use `"protocol": 1` (A2A), a queue `transport` (`1` Amqp or `2` AzureServiceBus), the task topic as `address`, `"livenessModel": 0` (Ephemeral) and `ttlSeconds`. That agent still appears at `GET /a2a/async/agents`, but its card's `queueEndpoint` holds only `technology` and `taskTopic`. The broker connection details (host, port, exchange, response topic) are only stored by `POST /a2a/async/agents`.
 
 ## Discovering queued agents
 

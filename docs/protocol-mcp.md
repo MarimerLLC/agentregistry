@@ -164,14 +164,16 @@ POST /agents
   ],
   "endpoints": [{
     "name": "streamable-http",
-    "transport": "Http",
-    "protocol": "MCP",
+    "transport": 0,
+    "protocol": 2,
     "address": "https://weather.example.com/mcp",
-    "livenessModel": "Persistent",
+    "livenessModel": 1,
     "heartbeatIntervalSeconds": 30
   }]
 }
 ```
+
+The generic API takes enum fields as numbers: `transport` `0` (Http), `protocol` `2` (MCP), `livenessModel` `1` (Persistent). See [Enum values in request bodies](../README.md#enum-values-in-request-bodies).
 
 The card at `GET /mcp/servers/{id}` is synthesised from domain data: `name` is `agentregistry/{agentId}` (UUID without dashes), `title` is the agent name, `description` is the agent description (or name) truncated to 100 characters, and `version` is `1.0.0`. Each MCP HTTP endpoint becomes a `streamable-http` remote.
 

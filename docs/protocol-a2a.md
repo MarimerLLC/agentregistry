@@ -87,14 +87,16 @@ POST /agents
   "capabilities": [{ "name": "summarize", "tags": ["nlp"] }],
   "endpoints": [{
     "name": "primary",
-    "transport": "Http",
-    "protocol": "A2A",
+    "transport": 0,
+    "protocol": 1,
     "address": "https://summarizer.example.com/a2a",
-    "livenessModel": "Persistent",
+    "livenessModel": 1,
     "heartbeatIntervalSeconds": 30
   }]
 }
 ```
+
+The generic API takes enum fields as numbers: `transport` `0` (Http), `protocol` `1` (A2A), `livenessModel` `1` (Persistent). See [Enum values in request bodies](../README.md#enum-values-in-request-bodies).
 
 The agent card served at `GET /a2a/agents/{id}` is built from the domain model. Version defaults to `"1.0"`, capabilities default to `{ streaming: false }`, and the interface is `JSONRPC` / `1.0`, since no A2A-specific metadata was stored.
 
