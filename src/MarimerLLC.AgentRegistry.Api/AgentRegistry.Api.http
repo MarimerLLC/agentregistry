@@ -1,6 +1,96 @@
 @AgentRegistry.Api_HostAddress = http://localhost:5199
+@ApiKey = <agent-or-admin-api-key>
 
-GET {{AgentRegistry.Api_HostAddress}}/weatherforecast/
+### Registry's own A2A 1.0 agent card
+GET {{AgentRegistry.Api_HostAddress}}/.well-known/agent-card.json
 Accept: application/json
+
+### AI Catalog of MCP Server Cards
+GET {{AgentRegistry.Api_HostAddress}}/.well-known/ai-catalog.json
+
+### Registry's own MCP Server Card (SEP-2127)
+GET {{AgentRegistry.Api_HostAddress}}/mcp/server-card
+Accept: application/mcp-server-card+json
+
+### Register an MCP server with a Server Card (SEP-2127)
+POST {{AgentRegistry.Api_HostAddress}}/mcp/servers
+X-Api-Key: {{ApiKey}}
+Content-Type: application/json
+
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
+  "name": "com.example/weather",
+  "version": "1.0.0",
+  "title": "Weather Server",
+  "description": "Live weather data.",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://weather.example.com/mcp",
+      "supportedProtocolVersions": ["2026-07-28", "2025-11-25"]
+    }
+  ],
+  "_meta": {
+    "llc.marimer/agentregistry": {
+      "instructions": "Use get_weather to fetch live weather data.",
+      "tools": [
+        {
+          "name": "get_weather",
+          "description": "Gets current weather for a location",
+          "inputSchema": {
+            "type": "object",
+            "properties": { "location": { "type": "string" } },
+            "required": ["location"]
+          }
+        }
+      ]
+    }
+  }
+}
+
+### List MCP Server Cards
+GET {{AgentRegistry.Api_HostAddress}}/mcp/servers?capability=get_weather
+
+### Register an A2A agent with an A2A 1.0 agent card
+POST {{AgentRegistry.Api_HostAddress}}/a2a/agents
+X-Api-Key: {{ApiKey}}
+Content-Type: application/json
+
+{
+  "card": {
+    "name": "Summarizer",
+    "description": "Summarizes documents.",
+    "version": "2.3.1",
+    "capabilities": { "streaming": true },
+    "skills": [
+      { "id": "summarize", "name": "Summarize", "description": "Summarizes text", "tags": ["nlp"] }
+    ],
+    "supportedInterfaces": [
+      { "url": "https://summarizer.example.com/a2a", "protocolBinding": "JSONRPC", "protocolVersion": "1.0" }
+    ],
+    "provider": { "organization": "Example Co", "url": "https://example.com" },
+    "defaultInputModes": ["text/plain"],
+    "defaultOutputModes": ["text/plain"]
+  }
+}
+
+### MCP 2026-07-28: server/discover (no initialize)
+POST {{AgentRegistry.Api_HostAddress}}/mcp
+Accept: application/json, text/event-stream
+Content-Type: application/json
+MCP-Protocol-Version: 2026-07-28
+Mcp-Method: server/discover
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "server/discover",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}
 
 ###

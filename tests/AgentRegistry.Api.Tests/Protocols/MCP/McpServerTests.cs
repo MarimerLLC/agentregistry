@@ -1,16 +1,17 @@
-using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using MarimerLLC.AgentRegistry.Api.Agents.Models;
 using MarimerLLC.AgentRegistry.Api.Tests.Infrastructure;
 using MarimerLLC.AgentRegistry.Domain.Agents;
+using ModelContextProtocol.Client;
 
 namespace MarimerLLC.AgentRegistry.Api.Tests.Protocols.MCP;
 
 /// <summary>
-/// Integration tests for the registry's own MCP server at POST /mcp (Streamable HTTP).
-/// The SDK converts PascalCase method names to snake_case for tool names.
-/// Responses arrive as SSE (text/event-stream) with JSON-RPC payloads in data: lines.
+/// Integration tests for the registry's own MCP server at POST /mcp (stateless Streamable HTTP).
+/// Covers 2026-07-28 clients (no initialize, per-request _meta) and 2025-11-25 clients (initialize
+/// handshake, served without a session). The SDK converts PascalCase method names to snake_case.
+/// Responses arrive as SSE (text/event-stream) or JSON with JSON-RPC payloads.
 /// </summary>
 public class McpServerTests(AgentRegistryFactory factory) : IClassFixture<AgentRegistryFactory>, IDisposable
 {
@@ -21,6 +22,9 @@ public class McpServerTests(AgentRegistryFactory factory) : IClassFixture<AgentR
 
     private static readonly JsonSerializerOptions Json = JsonSerializerOptions.Web;
 
+    private const string Modern = "2026-07-28";
+    private const string Legacy = "2025-11-25";
+
     // Tool name constants — SDK converts PascalCase method names to snake_case.
     private const string ToolDiscoverAgents = "discover_agents";
     private const string ToolGetAgent = "get_agent";
@@ -28,43 +32,94 @@ public class McpServerTests(AgentRegistryFactory factory) : IClassFixture<AgentR
     private const string ToolGetMcpServerCard = "get_mcp_server_card";
     private const string ToolGetAcpManifest = "get_acp_manifest";
 
-    // ── MCP protocol handshake ────────────────────────────────────────────────
+    // ── 2025-11-25 down-level: initialize handshake ───────────────────────────
 
     [Fact]
     public async Task Initialize_ReturnsServerInfo()
     {
         var (result, _) = await Initialize();
 
-        Assert.Equal("AgentRegistry",
-            result.GetProperty("serverInfo").GetProperty("name").GetString());
-        Assert.Equal("1.0.0",
-            result.GetProperty("serverInfo").GetProperty("version").GetString());
+        var serverInfo = result.GetProperty("serverInfo");
+        Assert.Equal(RegistryIdentity.Name, serverInfo.GetProperty("name").GetString());
+        Assert.Equal(RegistryIdentity.Title, serverInfo.GetProperty("title").GetString());
+        Assert.Equal(RegistryIdentity.Version, serverInfo.GetProperty("version").GetString());
+        Assert.Equal(Legacy, result.GetProperty("protocolVersion").GetString());
     }
 
     [Fact]
-    public async Task Initialize_ReturnsToolsCapability()
+    public async Task Initialize_ReturnsToolsCapabilityAndInstructions()
     {
         var (result, _) = await Initialize();
 
-        var capabilities = result.GetProperty("capabilities");
-        Assert.True(capabilities.TryGetProperty("tools", out _),
+        Assert.True(result.GetProperty("capabilities").TryGetProperty("tools", out _),
             "Server capabilities should include 'tools'");
+        Assert.Contains("discover_agents", result.GetProperty("instructions").GetString());
+    }
+
+    [Fact]
+    public async Task Initialize_IsStateless_NoSessionId()
+    {
+        var (_, sessionId) = await Initialize();
+        Assert.Null(sessionId);
     }
 
     [Fact]
     public async Task McpEndpoint_IsPublic_NoAuthRequired()
     {
         var (result, _) = await Initialize();
-        Assert.Equal("AgentRegistry", result.GetProperty("serverInfo").GetProperty("name").GetString());
+        Assert.Equal(RegistryIdentity.Name, result.GetProperty("serverInfo").GetProperty("name").GetString());
     }
 
-    // ── Tool discovery ────────────────────────────────────────────────────────
+    [Fact]
+    public async Task Legacy_ToolsList_ReturnsAllFiveTools()
+    {
+        await Initialize();
+        var result = await CallLegacy("tools/list", new { });
+
+        var names = result.GetProperty("tools").EnumerateArray()
+            .Select(t => t.GetProperty("name").GetString()).ToHashSet();
+        Assert.Equal(5, names.Count);
+        Assert.Contains(ToolDiscoverAgents, names);
+        Assert.Contains(ToolGetAgent, names);
+        Assert.Contains(ToolGetA2ACard, names);
+        Assert.Contains(ToolGetMcpServerCard, names);
+        Assert.Contains(ToolGetAcpManifest, names);
+    }
+
+    [Fact]
+    public async Task Legacy_ToolCall_DiscoverAgents_ReturnsAgentList()
+    {
+        await RegisterA2AAgent();
+
+        await Initialize();
+        var result = await CallLegacy("tools/call",
+            new { name = ToolDiscoverAgents, arguments = new { liveOnly = true, pageSize = 10 } });
+
+        var payload = ParseToolText(result);
+        Assert.Equal(1, payload.GetProperty("totalCount").GetInt32());
+    }
+
+    // ── 2026-07-28: no initialize, per-request _meta ──────────────────────────
+
+    [Fact]
+    public async Task Discover_ListsModernAndServerInfo()
+    {
+        var result = await CallModern("server/discover", new { });
+
+        var versions = result.GetProperty("supportedVersions").EnumerateArray()
+            .Select(v => v.GetString()).ToList();
+        Assert.Contains(Modern, versions);
+        Assert.True(result.GetProperty("capabilities").TryGetProperty("tools", out _));
+        Assert.Contains("discover_agents", result.GetProperty("instructions").GetString());
+
+        var serverInfo = result.GetProperty("_meta").GetProperty("io.modelcontextprotocol/serverInfo");
+        Assert.Equal(RegistryIdentity.Name, serverInfo.GetProperty("name").GetString());
+    }
 
     [Fact]
     public async Task ToolsList_ReturnsAllFiveTools()
     {
-        var (_, sessionId) = await Initialize();
-        var result = await CallMethod("tools/list", new { }, sessionId);
+        var result = await CallModern("tools/list", new { });
 
         var tools = result.GetProperty("tools").EnumerateArray().ToList();
         Assert.Equal(5, tools.Count);
@@ -80,11 +135,9 @@ public class McpServerTests(AgentRegistryFactory factory) : IClassFixture<AgentR
     [Fact]
     public async Task ToolsList_AllToolsHaveDescriptions()
     {
-        var (_, sessionId) = await Initialize();
-        var result = await CallMethod("tools/list", new { }, sessionId);
+        var result = await CallModern("tools/list", new { });
 
-        var tools = result.GetProperty("tools").EnumerateArray().ToList();
-        Assert.All(tools, tool =>
+        Assert.All(result.GetProperty("tools").EnumerateArray(), tool =>
         {
             Assert.True(tool.TryGetProperty("description", out var desc));
             Assert.False(string.IsNullOrWhiteSpace(desc.GetString()));
@@ -92,10 +145,23 @@ public class McpServerTests(AgentRegistryFactory factory) : IClassFixture<AgentR
     }
 
     [Fact]
+    public async Task ToolsList_AllToolsAnnotatedReadOnly()
+    {
+        var result = await CallModern("tools/list", new { });
+
+        Assert.All(result.GetProperty("tools").EnumerateArray(), tool =>
+        {
+            var annotations = tool.GetProperty("annotations");
+            Assert.True(annotations.GetProperty("readOnlyHint").GetBoolean());
+            Assert.True(annotations.GetProperty("idempotentHint").GetBoolean());
+            Assert.False(annotations.GetProperty("openWorldHint").GetBoolean());
+        });
+    }
+
+    [Fact]
     public async Task ToolsList_DiscoverAgents_HasInputSchema()
     {
-        var (_, sessionId) = await Initialize();
-        var result = await CallMethod("tools/list", new { }, sessionId);
+        var result = await CallModern("tools/list", new { });
 
         var discover = result.GetProperty("tools").EnumerateArray()
             .First(t => t.GetProperty("name").GetString() == ToolDiscoverAgents);
@@ -103,52 +169,35 @@ public class McpServerTests(AgentRegistryFactory factory) : IClassFixture<AgentR
         Assert.True(discover.TryGetProperty("inputSchema", out _));
     }
 
-    // ── Tool calls ────────────────────────────────────────────────────────────
-
     [Fact]
     public async Task ToolCall_DiscoverAgents_ReturnsAgentList()
     {
-        await _admin.PostAsJsonAsync("/agents", new RegisterAgentRequest(
-            "Discovery Test", null, null,
-            [new CapabilityRequest("search", "Searches", ["search"])],
-            [new EndpointRequest("ep", TransportType.Http, ProtocolType.A2A,
-                "https://example.com", LivenessModel.Ephemeral, 300, null, null)]));
+        await RegisterA2AAgent();
 
-        var (_, sessionId) = await Initialize();
-        var result = await CallToolAndParseText(ToolDiscoverAgents,
-            new { liveOnly = true, pageSize = 10 }, sessionId);
+        var result = await CallToolModern(ToolDiscoverAgents, new { liveOnly = true, pageSize = 10 });
 
         Assert.True(result.TryGetProperty("agents", out _));
-        Assert.True(result.TryGetProperty("totalCount", out _));
+        Assert.Equal(1, result.GetProperty("totalCount").GetInt32());
     }
 
     [Fact]
     public async Task ToolCall_DiscoverAgents_EmptyRegistry_ReturnsEmptyList()
     {
-        var (_, sessionId) = await Initialize();
-        var result = await CallToolAndParseText(ToolDiscoverAgents,
-            new { liveOnly = true }, sessionId);
-
+        var result = await CallToolModern(ToolDiscoverAgents, new { liveOnly = true });
         Assert.Equal(0, result.GetProperty("totalCount").GetInt32());
     }
 
     [Fact]
     public async Task ToolCall_GetAgent_UnknownId_ReturnsErrorObject()
     {
-        var (_, sessionId) = await Initialize();
-        var result = await CallToolAndParseText(ToolGetAgent,
-            new { id = Guid.NewGuid().ToString() }, sessionId);
-
+        var result = await CallToolModern(ToolGetAgent, new { id = Guid.NewGuid().ToString() });
         Assert.True(result.TryGetProperty("error", out _));
     }
 
     [Fact]
     public async Task ToolCall_GetAgent_InvalidId_ReturnsErrorObject()
     {
-        var (_, sessionId) = await Initialize();
-        var result = await CallToolAndParseText(ToolGetAgent,
-            new { id = "not-a-guid" }, sessionId);
-
+        var result = await CallToolModern(ToolGetAgent, new { id = "not-a-guid" });
         Assert.True(result.TryGetProperty("error", out _));
     }
 
@@ -158,9 +207,7 @@ public class McpServerTests(AgentRegistryFactory factory) : IClassFixture<AgentR
         var created = await PostAndDeserialize<AgentResponse>("/agents",
             new RegisterAgentRequest("Known Agent", "desc", null, null, null), _admin);
 
-        var (_, sessionId) = await Initialize();
-        var result = await CallToolAndParseText(ToolGetAgent,
-            new { id = created.Id }, sessionId);
+        var result = await CallToolModern(ToolGetAgent, new { id = created.Id });
 
         Assert.Equal("Known Agent", result.GetProperty("name").GetString());
         Assert.Equal(created.Id, result.GetProperty("id").GetString());
@@ -169,20 +216,100 @@ public class McpServerTests(AgentRegistryFactory factory) : IClassFixture<AgentR
     [Fact]
     public async Task ToolCall_GetA2ACard_NoA2AEndpoints_ReturnsError()
     {
-        var created = await PostAndDeserialize<AgentResponse>("/agents",
-            new RegisterAgentRequest("No A2A", null, null, null,
-            [new EndpointRequest("ep", TransportType.Http, ProtocolType.MCP,
-                "https://example.com/mcp", LivenessModel.Ephemeral, 300, null, null)]), _admin);
+        var created = await RegisterMcpAgent();
 
-        var (_, sessionId) = await Initialize();
-        var result = await CallToolAndParseText(ToolGetA2ACard,
-            new { id = created.Id }, sessionId);
+        var result = await CallToolModern(ToolGetA2ACard, new { id = created.Id });
 
         Assert.True(result.TryGetProperty("error", out _));
     }
 
+    [Fact]
+    public async Task ToolCall_GetMcpServerCard_ReturnsServerCard()
+    {
+        var created = await RegisterMcpAgent();
+
+        var result = await CallToolModern(ToolGetMcpServerCard, new { id = created.Id });
+
+        Assert.Equal(
+            "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
+            result.GetProperty("$schema").GetString());
+        Assert.Equal("https://example.com/mcp",
+            result.GetProperty("remotes")[0].GetProperty("url").GetString());
+    }
+
+    [Fact]
+    public async Task Modern_ToolCallWithoutMcpNameHeader_IsRejected()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "/mcp")
+        {
+            Content = JsonContent.Create(new
+            {
+                jsonrpc = "2.0",
+                id = 7,
+                method = "tools/call",
+                @params = new Dictionary<string, object>
+                {
+                    ["name"] = ToolDiscoverAgents,
+                    ["arguments"] = new { },
+                    ["_meta"] = new Dictionary<string, object>
+                    {
+                        ["io.modelcontextprotocol/protocolVersion"] = Modern,
+                        ["io.modelcontextprotocol/clientCapabilities"] = new { },
+                    },
+                },
+            }, options: Json)
+        };
+        request.Headers.Add("Accept", "application/json, text/event-stream");
+        request.Headers.Add("MCP-Protocol-Version", Modern);
+        request.Headers.Add("Mcp-Method", "tools/call");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    // ── Real SDK client ───────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task SdkClient_Modern_DiscoversAgents()
+    {
+        await RegisterA2AAgent();
+
+        var transport = new HttpClientTransport(
+            new HttpClientTransportOptions { Endpoint = new Uri(_client.BaseAddress!, "/mcp") },
+            _client,
+            ownsHttpClient: false);
+
+        await using var mcp = await McpClient.CreateAsync(transport,
+            new McpClientOptions { ProtocolVersion = Modern });
+
+        Assert.Equal(Modern, mcp.NegotiatedProtocolVersion);
+
+        var tools = await mcp.ListToolsAsync();
+        Assert.Contains(tools, t => t.Name == ToolDiscoverAgents);
+
+        var result = await mcp.CallToolAsync(ToolDiscoverAgents,
+            new Dictionary<string, object?> { ["liveOnly"] = true });
+        var text = result.Content.OfType<ModelContextProtocol.Protocol.TextContentBlock>().Single().Text;
+        Assert.Equal(1, JsonDocument.Parse(text).RootElement.GetProperty("totalCount").GetInt32());
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    private async Task RegisterA2AAgent() =>
+        (await _admin.PostAsJsonAsync("/agents", new RegisterAgentRequest(
+            "Discovery Test", null, null,
+            [new CapabilityRequest("search", "Searches", ["search"])],
+            [new EndpointRequest("ep", TransportType.Http, ProtocolType.A2A,
+                "https://example.com", LivenessModel.Ephemeral, 300, null, null)]))).EnsureSuccessStatusCode();
+
+    private Task<AgentResponse> RegisterMcpAgent() =>
+        PostAndDeserialize<AgentResponse>("/agents",
+            new RegisterAgentRequest("MCP Agent", null, null, null,
+            [new EndpointRequest("ep", TransportType.Http, ProtocolType.MCP,
+                "https://example.com/mcp", LivenessModel.Ephemeral, 300, null, null)]), _admin);
+
+    /// <summary>2025-11-25 initialize. Returns the result and any Mcp-Session-Id (none when stateless).</summary>
     private async Task<(JsonElement result, string? sessionId)> Initialize()
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "/mcp")
@@ -194,7 +321,7 @@ public class McpServerTests(AgentRegistryFactory factory) : IClassFixture<AgentR
                 method = "initialize",
                 @params = new
                 {
-                    protocolVersion = "2025-11-25",
+                    protocolVersion = Legacy,
                     capabilities = new { },
                     clientInfo = new { name = "test-client", version = "1.0" }
                 }
@@ -203,37 +330,18 @@ public class McpServerTests(AgentRegistryFactory factory) : IClassFixture<AgentR
         request.Headers.Add("Accept", "application/json, text/event-stream");
 
         var response = await _client.SendAsync(request);
-        Assert.True(response.IsSuccessStatusCode,
-            $"Initialize failed: {response.StatusCode}");
+        Assert.True(response.IsSuccessStatusCode, $"Initialize failed: {response.StatusCode}");
 
         var sessionId = response.Headers.TryGetValues("Mcp-Session-Id", out var vals)
             ? vals.FirstOrDefault()
             : null;
 
-        var text = await response.Content.ReadAsStringAsync();
-        var json = ExtractJsonFromSse(text);
-        var root = JsonDocument.Parse(json).RootElement;
-
-        // The data payload may or may not include the jsonrpc envelope.
-        var result = root.TryGetProperty("result", out var r) ? r : root;
-
-        await SendNotification("notifications/initialized", new { }, sessionId);
-
-        return (result, sessionId);
+        var root = JsonDocument.Parse(ExtractJsonFromSse(await response.Content.ReadAsStringAsync())).RootElement;
+        return (root.TryGetProperty("result", out var r) ? r : root, sessionId);
     }
 
-    private async Task SendNotification(string method, object @params, string? sessionId)
-    {
-        var request = new HttpRequestMessage(HttpMethod.Post, "/mcp")
-        {
-            Content = JsonContent.Create(new { jsonrpc = "2.0", method, @params }, options: Json)
-        };
-        request.Headers.Add("Accept", "application/json, text/event-stream");
-        if (sessionId is not null) request.Headers.Add("Mcp-Session-Id", sessionId);
-        await _client.SendAsync(request);
-    }
-
-    private async Task<JsonElement> CallMethod(string method, object @params, string? sessionId)
+    /// <summary>A 2025-11-25 request after initialize: protocol version in the header, no _meta.</summary>
+    private Task<JsonElement> CallLegacy(string method, object @params)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "/mcp")
         {
@@ -245,35 +353,69 @@ public class McpServerTests(AgentRegistryFactory factory) : IClassFixture<AgentR
                 @params
             }, options: Json)
         };
+        request.Headers.Add("MCP-Protocol-Version", Legacy);
+        return Send(request, method);
+    }
+
+    /// <summary>
+    /// A 2026-07-28 request: no initialize; protocol version and client capabilities in
+    /// params._meta, plus the required Mcp-Method / Mcp-Name headers.
+    /// </summary>
+    private Task<JsonElement> CallModern(string method, Dictionary<string, object?> @params, string? routingName = null)
+    {
+        @params["_meta"] = new Dictionary<string, object>
+        {
+            ["io.modelcontextprotocol/protocolVersion"] = Modern,
+            ["io.modelcontextprotocol/clientCapabilities"] = new { },
+            ["io.modelcontextprotocol/clientInfo"] = new { name = "test-client", version = "1.0" },
+        };
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/mcp")
+        {
+            Content = JsonContent.Create(new
+            {
+                jsonrpc = "2.0",
+                id = Random.Shared.Next(100, 9999),
+                method,
+                @params
+            }, options: Json)
+        };
+        request.Headers.Add("MCP-Protocol-Version", Modern);
+        request.Headers.Add("Mcp-Method", method);
+        if (routingName is not null) request.Headers.Add("Mcp-Name", routingName);
+        return Send(request, method);
+    }
+
+    private Task<JsonElement> CallModern(string method, object @params) =>
+        CallModern(method, JsonSerializer.Deserialize<Dictionary<string, object?>>(
+            JsonSerializer.Serialize(@params, Json), Json)!);
+
+    private async Task<JsonElement> CallToolModern(string toolName, object arguments)
+    {
+        var result = await CallModern("tools/call",
+            new Dictionary<string, object?> { ["name"] = toolName, ["arguments"] = arguments },
+            routingName: toolName);
+        return ParseToolText(result);
+    }
+
+    private async Task<JsonElement> Send(HttpRequestMessage request, string method)
+    {
         request.Headers.Add("Accept", "application/json, text/event-stream");
-        if (sessionId is not null) request.Headers.Add("Mcp-Session-Id", sessionId);
 
         var response = await _client.SendAsync(request);
         var text = await response.Content.ReadAsStringAsync();
         Assert.True(response.IsSuccessStatusCode,
-            $"MCP {method} returned {response.StatusCode}. Body: {text[..Math.Min(300, text.Length)]}");
+            $"MCP {method} returned {response.StatusCode}. Body: {text[..Math.Min(500, text.Length)]}");
+        Assert.False(response.Headers.Contains("Mcp-Session-Id"), "Stateless server must not mint a session");
 
-        var json = ExtractJsonFromSse(text);
-        var root = JsonDocument.Parse(json).RootElement;
-
-        // Return result if present, otherwise the root (let callers handle errors).
-        return root.TryGetProperty("result", out var result) ? result : root;
+        var root = JsonDocument.Parse(ExtractJsonFromSse(text)).RootElement;
+        Assert.False(root.TryGetProperty("error", out var error), $"MCP {method} error: {error}");
+        return root.GetProperty("result");
     }
 
-    private async Task<JsonElement> CallToolAndParseText(string toolName, object arguments, string? sessionId)
-    {
-        var result = await CallMethod("tools/call", new { name = toolName, arguments }, sessionId);
-
-        // Result may have content[0].text (success) or be an error payload.
-        if (result.TryGetProperty("content", out var content))
-        {
-            var text = content[0].GetProperty("text").GetString()!;
-            return JsonDocument.Parse(text).RootElement;
-        }
-
-        // Propagate as-is so callers can assert on error shape.
-        return result;
-    }
+    /// <summary>Tool results carry the JSON payload in content[0].text.</summary>
+    private static JsonElement ParseToolText(JsonElement result) =>
+        JsonDocument.Parse(result.GetProperty("content")[0].GetProperty("text").GetString()!).RootElement;
 
     /// <summary>
     /// Extracts the JSON-RPC payload from an SSE stream or plain JSON response.

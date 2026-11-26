@@ -17,11 +17,14 @@ COPY tests/AgentRegistry.Api.Tests/AgentRegistry.Api.Tests.csproj            tes
 
 RUN dotnet restore MarimerLLC.AgentRegistry.slnx
 
-# Copy source and publish.
+# Copy source and publish. The version comes from Directory.Build.props (VersionPrefix);
+# pass --build-arg VERSION_SUFFIX=rc.1 for a pre-release image.
+ARG VERSION_SUFFIX=
 COPY src/ src/
 RUN dotnet publish src/MarimerLLC.AgentRegistry.Api/MarimerLLC.AgentRegistry.Api.csproj \
     --configuration Release \
-    --output /app/publish
+    --output /app/publish \
+    -p:VersionSuffix="${VERSION_SUFFIX}"
 
 # ── Runtime image ─────────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime

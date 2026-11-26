@@ -11,12 +11,22 @@ public static class A2AEndpoints
     public static IEndpointRouteBuilder MapA2AEndpoints(this IEndpointRouteBuilder app)
     {
         // The registry's own agent card — describes the registry as an A2A agent.
-        app.MapGet("/.well-known/agent.json", GetRegistryCard)
+        app.MapGet("/.well-known/agent-card.json", GetRegistryCard)
             .WithName("A2ARegistryCard")
             .WithTags("A2A")
             .WithSummary("Registry's own A2A agent card")
-            .WithDescription("Returns the A2A agent card that describes the registry itself as an A2A-capable agent, following the A2A v1.0 RC well-known URL convention.")
-            .Produces<object>(StatusCodes.Status200OK);
+            .WithDescription("Returns the A2A 1.0 agent card that describes the registry itself as an A2A-capable agent, at the A2A 1.0 well-known URL. Supports CORS, `Cache-Control` and ETag / `If-None-Match`.")
+            .Produces<AgentCard>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status304NotModified)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
+
+        app.MapMethods("/.well-known/agent-card.json", [HttpMethods.Options], CardResults.Preflight)
+            .WithName("A2ARegistryCardPreflight")
+            .WithTags("A2A")
+            .WithSummary("CORS preflight")
+            .WithDescription("Answers browser CORS preflight requests for the registry's own agent card.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         var group = app.MapGroup("/a2a").WithTags("A2A");
 
@@ -24,7 +34,7 @@ public static class A2AEndpoints
         group.MapGet("/agents/{id}", GetAgentCard)
             .WithName("A2AGetAgentCard")
             .WithSummary("Get an A2A agent card")
-            .WithDescription("Returns the A2A-spec agent card for a registered agent. Skills are mapped from the agent's capabilities. Returns 404 if the agent does not exist or has no A2A endpoints.")
+            .WithDescription("Returns the A2A 1.0 agent card for a registered agent. Skills are mapped from the agent's capabilities. Returns 404 if the agent does not exist or has no A2A endpoints.")
             .Produces<object>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -34,7 +44,7 @@ public static class A2AEndpoints
             .RequireAuthorization(RegistryPolicies.AgentOrAdmin)
             .WithName("A2ARegisterAgent")
             .WithSummary("Register an agent via A2A agent card")
-            .WithDescription("Registers an agent by submitting a native A2A agent card. Capabilities are mapped from the card's skills and endpoints from the card's service endpoints. Returns the stored card.")
+            .WithDescription("Registers an agent by submitting a native A2A 1.0 agent card as `{ \"card\": { ... } }`. Capabilities are mapped from the card's skills and endpoints from `supportedInterfaces` (`url`, `protocolBinding`, `protocolVersion`, `tenant`). Card `signatures` are accepted but not re-served, because the registry rebuilds the card. Returns the stored card.")
             .Produces<object>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized);
@@ -46,7 +56,7 @@ public static class A2AEndpoints
     {
         var baseUrl = GetBaseUrl(request);
         var card = A2AAgentCardMapper.RegistrySelfCard(baseUrl);
-        return Results.Ok(card);
+        return CardResults.Json(card, "application/json", CardResults.SelfCardMaxAgeSeconds);
     }
 
     private static async Task<IResult> GetAgentCard(

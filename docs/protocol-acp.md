@@ -11,7 +11,7 @@ Agent Communication Protocol (ACP) is a REST-based protocol developed by IBM Res
 | | MCP | ACP | A2A |
 |---|---|---|---|
 | **Interaction model** | Model ↔ tools (hierarchical) | Agent ↔ agent (REST) | Agent ↔ agent (JSON-RPC/gRPC) |
-| **Discovery** | Manual / config | `/agents` endpoint + manifests | `/.well-known/agent.json` |
+| **Discovery** | Manual / config | `/agents` endpoint + manifests | `/.well-known/agent-card.json` |
 | **Execution** | Tool calls | `POST /runs` (sync/async/stream) | Task protocol |
 | **Schemas** | JSON Schema per tool | JSON Schema for input/output/config/thread state | Skills with I/O modes |
 | **Sessions** | No session memory | Session-aware, thread state | Session-aware |

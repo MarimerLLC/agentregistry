@@ -64,28 +64,30 @@ Detailed design rationale for each adapter is in [`/docs`](docs/):
 
 ### A2A (Agent-to-Agent)
 
-Targets the [A2A v1.0 RC spec](https://a2a-protocol.org/). The registry serves A2A agent cards and accepts A2A-native registration.
+Targets [A2A 1.0](https://a2a-protocol.org/). The registry serves A2A agent cards and accepts A2A-native registration.
 
-- `GET /.well-known/agent.json` — the registry's own A2A agent card
+- `GET /.well-known/agent-card.json` — the registry's own A2A agent card
 - `GET /a2a/agents/{id}` — agent card for any registered A2A agent (public)
 - `POST /a2a/agents` — register by submitting an A2A agent card directly (Agent or Admin)
 
-Agent capabilities map to A2A skills. Protocol-specific fields (streaming capability, security schemes, provider, icon URL, etc.) round-trip through `Endpoint.ProtocolMetadata` so nothing is lost.
+Agent capabilities map to A2A skills. Protocol-specific fields (interface bindings and protocol versions, capability extensions, security schemes and requirements, provider, icon URL, etc.) round-trip through `Endpoint.ProtocolMetadata`. Card signatures are accepted but not re-served, because the registry rebuilds each card.
 
 ### MCP (Model Context Protocol)
 
-Targets the [MCP spec 2025-11-25](https://modelcontextprotocol.io/), **Streamable HTTP transport only** — the deprecated HTTP+SSE transport (2024-11-05) and stdio are not supported.
+Targets [MCP 2026-07-28](https://modelcontextprotocol.io/) (with 2025-11-25 down-level) and describes servers with [MCP Server Cards (SEP-2127)](https://github.com/modelcontextprotocol/experimental-ext-server-card). **Streamable HTTP transport only** — the deprecated HTTP+SSE transport (2024-11-05) and stdio are not supported.
 
-**The registry is itself an MCP server.** Any MCP-capable model or agent can connect at `POST /mcp` and use five built-in tools to discover agents: `discover_agents`, `get_agent`, `get_a2a_card`, `get_mcp_server_card`, and `get_acp_manifest`. This means an AI model can ask the registry "find me a live summarisation agent that speaks A2A" and get a usable answer without any human in the loop.
+**The registry is itself an MCP server.** Any MCP-capable model or agent can connect at `POST /mcp` (stateless; no session or `initialize` needed on 2026-07-28) and use five read-only tools to discover agents: `discover_agents`, `get_agent`, `get_a2_a_card`, `get_mcp_server_card`, and `get_acp_manifest`. This means an AI model can ask the registry "find me a live summarisation agent that speaks A2A" and get a usable answer without any human in the loop.
 
-The registry also acts as a discovery service for other MCP servers — storing their server cards and exposing them for lookup:
+The registry also acts as a discovery service for other MCP servers — storing their Server Cards and exposing them for lookup:
 
 - `POST /mcp` — the registry's own MCP server endpoint (Streamable HTTP, public)
-- `GET /mcp/servers/{id}` — MCP server card for a registered server (public)
-- `GET /mcp/servers` — filtered list of MCP server cards (public)
-- `POST /mcp/servers` — register by submitting an MCP server card directly (Agent or Admin)
+- `GET /mcp/server-card` — the registry's own MCP Server Card (public)
+- `GET /.well-known/ai-catalog.json` — AI Catalog linking the registry's card and every live MCP server's card (public)
+- `GET /mcp/servers/{id}` — MCP Server Card for a registered server (public)
+- `GET /mcp/servers` — filtered list of MCP Server Cards (public)
+- `POST /mcp/servers` — register by submitting an MCP Server Card directly (Agent or Admin)
 
-Tool, resource, and prompt descriptors (including JSON Schema) round-trip through `Endpoint.ProtocolMetadata`. The `isLive` field on returned cards reflects real-time Redis liveness.
+Cards carry no tools or capabilities, per SEP-2127. The registry keeps tool, resource, and prompt descriptors (including JSON Schema), its own ID, and real-time liveness under `_meta["llc.marimer/agentregistry"]`. Card and catalog responses send CORS, `Cache-Control` and ETag headers and honour `If-None-Match`.
 
 ### ACP (Agent Communication Protocol)
 
@@ -243,7 +245,7 @@ The registry accepts two authentication methods, selected by header:
   - A `registry_scope` claim with value `Admin` or `Agent`
   - A `roles` claim with value `registry.admin` or `registry.agent`
 
-Discovery, the MCP server endpoint, and protocol card endpoints (`/discover/agents`, `/mcp`, `/a2a/agents/*`, `/a2a/async/agents/*`, `/mcp/servers/*`, `/acp/agents/*`) are always public — no auth required.
+Discovery, the MCP server endpoint, and protocol card endpoints (`/discover/agents`, `/mcp`, `/mcp/server-card`, `/.well-known/*`, `/a2a/agents/*`, `/a2a/async/agents/*`, `/mcp/servers/*`, `/acp/agents/*`) are always public — no auth required.
 
 ## API overview
 
@@ -265,7 +267,7 @@ Discovery, the MCP server endpoint, and protocol card endpoints (`/discover/agen
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/.well-known/agent.json` | Public | Registry's own A2A agent card |
+| `GET` | `/.well-known/agent-card.json` | Public | Registry's own A2A agent card |
 | `GET` | `/a2a/agents/{id}` | Public | A2A agent card for a registered agent |
 | `POST` | `/a2a/agents` | Agent or Admin | Register by submitting an A2A agent card |
 
@@ -273,10 +275,12 @@ Discovery, the MCP server endpoint, and protocol card endpoints (`/discover/agen
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST/GET` | `/mcp` | Public | Registry's own MCP server (Streamable HTTP) |
-| `GET` | `/mcp/servers/{id}` | Public | MCP server card for a registered server |
-| `GET` | `/mcp/servers` | Public | Filtered list of MCP server cards |
-| `POST` | `/mcp/servers` | Agent or Admin | Register by submitting an MCP server card |
+| `POST` | `/mcp` | Public | Registry's own MCP server (stateless Streamable HTTP) |
+| `GET` | `/mcp/server-card` | Public | Registry's own MCP Server Card |
+| `GET` | `/.well-known/ai-catalog.json` | Public | AI Catalog of MCP Server Cards |
+| `GET` | `/mcp/servers/{id}` | Public | MCP Server Card for a registered server |
+| `GET` | `/mcp/servers` | Public | Filtered list of MCP Server Cards |
+| `POST` | `/mcp/servers` | Agent or Admin | Register by submitting an MCP Server Card |
 
 ### ACP protocol
 
@@ -474,6 +478,10 @@ dotnet ef database update -p src/AgentRegistry.Infrastructure -s src/AgentRegist
 docker build -t agentregistry:latest .
 ```
 
+### Versioning
+
+The registry uses [Semantic Versioning](https://semver.org/). The version lives in one place, `VersionPrefix` in [`Directory.Build.props`](Directory.Build.props), and the registry reports it in MCP `serverInfo`, its MCP Server Card, its A2A agent card and the OpenAPI document. See [CONTRIBUTING.md](CONTRIBUTING.md#versioning) for when to bump each part and how to build pre-releases.
+
 ### Project structure
 
 ```
@@ -483,8 +491,8 @@ src/
   AgentRegistry.Infrastructure/ EF Core (PostgreSQL), Redis, SQL API key service
   AgentRegistry.Api/            ASP.NET Core 10 minimal API, auth, Scalar
     Protocols/
-      A2A/                      A2A v1.0 RC agent card adapter (HTTP)
-      MCP/                      MCP 2025-11-25 server card adapter (Streamable HTTP)
+      A2A/                      A2A 1.0 agent card adapter (HTTP)
+      MCP/                      MCP 2026-07-28 server + SEP-2127 Server Cards (Streamable HTTP)
       ACP/                      ACP 0.2.0 agent manifest adapter
       QueuedA2A/                A2A over async message brokers (RabbitMQ, Azure Service Bus)
 tests/
